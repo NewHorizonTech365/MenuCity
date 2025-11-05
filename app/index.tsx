@@ -1,220 +1,192 @@
-
-// Welcome / Landing screen
-// Ce fichier affiche l'écran d'accueil (écran de bienvenue) avant que
-// l'utilisateur ne se connecte. Il présente les fonctionnalités principales
-// et propose les actions de connexion / inscription.
-import React from 'react';
-import { Text, View, TouchableOpacity, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
-import { useAuth } from '../providers/AuthProvider';
-import Icon from '../components/Icon';
+// app/index.tsx
+import React from "react";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import Icon from "../components/Icon";
+import { useTheme } from "../styles/theme";
+import { useAuth } from "../providers/AuthProvider";
 
 export default function WelcomeScreen() {
   const { isAuthenticated, login } = useAuth();
   const router = useRouter();
+  const { colors, spacing, radius, typography } = useTheme();
 
-  const handleTestLogin = async () => {
-    const success = await login('test@example.com', 'password123');
-    if (success) {
-      router.push('/home');
-    }
-  };
-
-  // Si l'utilisateur est déjà connecté, on le redirige vers l'écran home
-  // automatiquement. Ceci évite d'afficher l'écran de bienvenue.
   if (isAuthenticated) {
-    router.push('/home');
+    router.push("/home");
     return null;
   }
 
   return (
-    <SafeAreaView style={commonStyles.container}>
-      <LinearGradient
-        colors={[colors.primary, colors.accent, colors.gold]}
-        style={{ flex: 1 }}
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: spacing.xl,
+          paddingTop: 80,
+          paddingBottom: 80,
+          alignItems: "center",
+        }}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={[commonStyles.content, { justifyContent: 'space-between', paddingVertical: 60 }]}>
-          {/* Header Section */}
-          {/* Section du haut contenant le logo et le titre de l'application */}
-          <View style={{ alignItems: 'center', marginTop: 40 }}>
-            <View style={{
-              width: 120,
-              height: 120,
-              borderRadius: 60,
-              backgroundColor: colors.textWhite,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 30,
-              boxShadow: '0px 8px 25px rgba(0, 0, 0, 0.3)',
-              elevation: 10,
-            }}>
-              <Icon name="restaurant" size={60} color={colors.primary} />
-            </View>
+        {/* Logo neutre */}
+        <View
+          style={{
+            width: 140,
+            height: 140,
+            borderRadius: 70,
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.border,
+            justifyContent: "center",
+            alignItems: "center",
+            marginBottom: spacing.xl,
+          }}
+        >
+          <Icon name="restaurant" size={64} color={colors.primary} />
+        </View>
 
-            {/* Titre principal de l'app */}
-            <Text style={[commonStyles.title, { 
-              color: colors.textWhite, 
-              fontSize: 32, 
-              marginBottom: 15,
-              textAlign: 'center',
-            }]}>
-              Saveurs d'Afrique
-            </Text>
-            
-            <Text style={[commonStyles.text, { 
-              color: colors.textWhite, 
-              fontSize: 18,
-              textAlign: 'center',
-              marginBottom: 0,
-              lineHeight: 26,
-            }]}>
-              Découvrez les trésors culinaires de Lubumbashi et partagez des moments inoubliables avec vos proches
-            </Text>
-          </View>
+        {/* TITLE */}
+        <Text
+          style={{
+            fontFamily: typography.bold,
+            fontSize: 36,
+            color: colors.text,
+            marginBottom: 10,
+            textAlign: "center",
+          }}
+        >
+          Saveurs de Lubumbashi
+        </Text>
 
-          {/* Features Section */}
-          {/* Une petite zone visuelle qui montre trois fonctionnalités clés */}
-          <View style={{ alignItems: 'center', marginVertical: 40 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginBottom: 30 }}>
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <View style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 30,
-                  backgroundColor: colors.textWhite,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 10,
-                }}>
-                  <Icon name="search" size={28} color={colors.primary} />
-                </View>
-                <Text style={[commonStyles.text, { 
-                  color: colors.textWhite, 
-                  fontSize: 14, 
-                  textAlign: 'center',
-                  marginBottom: 0,
-                }]}>
-                  Explorez
+        <Text
+          style={{
+            fontFamily: typography.regular,
+            fontSize: 18,
+            color: colors.textLight,
+            textAlign: "center",
+            lineHeight: 26,
+            marginBottom: spacing.xl,
+          }}
+        >
+          Explorez les meilleurs restaurants de Lubumbashi et partagez les
+          moments avec vos proches.
+        </Text>
+
+        {/* FEATURES */}
+        <View
+          style={{
+            width: "100%",
+            marginBottom: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              width: "100%",
+            }}
+          >
+            {[
+              { icon: "search", label: "Explorer" },
+              { icon: "people", label: "Inviter" },
+              { icon: "heart", label: "Savourez" },
+            ].map((item) => (
+              <View
+                key={item.label}
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  backgroundColor: colors.card,
+                  paddingVertical: 18,
+                  marginHorizontal: 6,
+                  borderRadius: radius.lg,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Icon
+                  name={item.icon}
+                  size={28}
+                  color={colors.primary}
+                  style={{ marginBottom: 8 }}
+                />
+                <Text
+                  style={{
+                    fontFamily: typography.semiBold,
+                    fontSize: 14,
+                    color: colors.text,
+                  }}
+                >
+                  {item.label}
                 </Text>
               </View>
-
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <View style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 30,
-                  backgroundColor: colors.textWhite,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 10,
-                }}>
-                  <Icon name="people" size={28} color={colors.accent} />
-                </View>
-                <Text style={[commonStyles.text, { 
-                  color: colors.textWhite, 
-                  fontSize: 14, 
-                  textAlign: 'center',
-                  marginBottom: 0,
-                }]}>
-                  Invitez
-                </Text>
-              </View>
-
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <View style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 30,
-                  backgroundColor: colors.textWhite,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 10,
-                }}>
-                  <Icon name="heart" size={28} color={colors.gold} />
-                </View>
-                <Text style={[commonStyles.text, { 
-                  color: colors.textWhite, 
-                  fontSize: 14, 
-                  textAlign: 'center',
-                  marginBottom: 0,
-                }]}>
-                  Savourez
-                </Text>
-              </View>
-            </View>
-
-            {/* Cultural Message */}
-            <View style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              borderRadius: 20,
-              padding: 20,
-              marginHorizontal: 20,
-              borderWidth: 1,
-              borderColor: 'rgba(255, 255, 255, 0.3)',
-            }}>
-              <Text style={[commonStyles.text, { 
-                color: colors.textWhite, 
-                fontSize: 16,
-                textAlign: 'center',
-                marginBottom: 0,
-                fontStyle: 'italic',
-              }]}>
-                "La nourriture est le langage universel de l'amour et de l'hospitalité africaine" 🌍
-              </Text>
-            </View>
-          </View>
-
-          {/* Action Buttons */}
-          {/* Boutons pour se connecter, s'inscrire ou utiliser un compte de test */}
-          <View style={commonStyles.buttonContainer}>
-            <TouchableOpacity
-              style={[buttonStyles.primary, { 
-                backgroundColor: colors.textWhite,
-                marginBottom: 15,
-                paddingVertical: 16,
-              }]}
-              onPress={() => router.push('/auth/login')}
-            >
-              <Text style={[buttonStyles.text, { color: colors.primary, fontSize: 18 }]}>
-                Se connecter
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[buttonStyles.secondary, { 
-                borderColor: colors.textWhite,
-                marginBottom: 15,
-                paddingVertical: 16,
-              }]}
-              onPress={() => router.push('/auth/register')}
-            >
-              <Text style={[buttonStyles.textSecondary, { color: colors.textWhite, fontSize: 18 }]}>
-                S'inscrire
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                paddingVertical: 12,
-                alignItems: 'center',
-              }}
-              onPress={handleTestLogin}
-            >
-              <Text style={[commonStyles.text, { 
-                color: colors.textWhite, 
-                fontSize: 16,
-                textDecorationLine: 'underline',
-                marginBottom: 0,
-              }]}>
-                Connexion test (développement)
-              </Text>
-            </TouchableOpacity>
+            ))}
           </View>
         </View>
-      </LinearGradient>
+
+        {/* ACTIONS */}
+        <TouchableOpacity
+          onPress={() => router.push("/auth/login")}
+          style={{
+            width: "100%",
+            backgroundColor: colors.primary,
+            borderRadius: radius.pill,
+            paddingVertical: 18,
+            alignItems: "center",
+            marginBottom: spacing.md,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: typography.semiBold,
+              fontSize: 18,
+              color: "#fff",
+            }}
+          >
+            Se connecter
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => router.push("/auth/register")}
+          style={{
+            width: "100%",
+            borderWidth: 1,
+            borderColor: colors.primary,
+            borderRadius: radius.pill,
+            paddingVertical: 18,
+            alignItems: "center",
+            marginBottom: spacing.md,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: typography.semiBold,
+              fontSize: 18,
+              color: colors.primary,
+            }}
+          >
+            S'inscrire
+          </Text>
+        </TouchableOpacity>
+
+        {/* DEV LOGIN */}
+        <TouchableOpacity onPress={async () => {
+          const ok = await login("test@example.com", "password123");
+          if (ok) router.push("/home");
+        }}>
+          <Text
+            style={{
+              fontFamily: typography.regular,
+              fontSize: 16,
+              color: colors.textLight,
+              textDecorationLine: "underline",
+            }}
+          >
+            Connexion test (développement)
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
   );
 }

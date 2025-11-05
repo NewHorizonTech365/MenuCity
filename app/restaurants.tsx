@@ -1,261 +1,443 @@
+// app/restaurants.tsx — Tinder swipe + Liste complète dans le même écran (toggle) + fix footer overlap
+import React, { useMemo, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Dimensions,
+  Image,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  FlatList,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import Swiper from "react-native-deck-swiper";
 
-// Restaurants screen: liste des restaurants et recherche
-// - Charge un ensemble de restaurants depuis `data/restaurants`
-// - Permet d'ouvrir un panneau de détails ou le sheet d'invitation
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Modal, Animated } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { commonStyles, colors } from '../styles/commonStyles';
-import { restaurantsLubumbashi } from '../data/restaurants';
-import { Restaurant } from '../types/Restaurant';
-import BottomNavigation from '../components/BottomNavigation';
-import RestaurantCard from '../components/RestaurantCard';
-import RestaurantDetails from '../components/RestaurantDetails';
-import InviteFriendSheet from '../components/InviteFriendSheet';
-import Icon from '../components/Icon';
+import { useTheme } from "../styles/theme";
+import BottomNavigation from "../components/BottomNavigation";
+import Icon from "../components/Icon";
+
+import { restaurantsLubumbashi } from "../data/restaurants";
+import { Restaurant } from "../types/Restaurant";
+import InviteFriendSheet from "../components/InviteFriendSheet";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const NAV_HEIGHT = 100; // hauteur visuelle approx de ta BottomNavigation (icon + badge + arrondi)
 
 export default function RestaurantsScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { colors, spacing, radius, typography } = useTheme();
+
+  // état UI
+  const [search, setSearch] = useState("");
+  const [selectedCatKey, setSelectedCatKey] = useState<string>("all");
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [showInviteSheet, setShowInviteSheet] = useState(false);
-  const [filteredRestaurants, setFilteredRestaurants] = useState(restaurantsLubumbashi);
 
-  // Animations
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(-50)).current;
-  const searchAnim = useRef(new Animated.Value(0)).current;
-  const cardsAnim = useRef(new Animated.Value(0)).current;
+  // toggle : swipe <-> liste
+  const [showFullList, setShowFullList] = useState(false);
 
-  useEffect(() => {
-    // Animation d'entrée de l'écran
-    Animated.stagger(150, [
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.timing(searchAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardsAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+  // catégories (aligné Home)
+  const categories = useMemo(
+    () => [
+      { key: "all", label: "Tous" },
+      { key: "africain", label: "Africain" },
+      { key: "fast-food", label: "Fast-food" },
+      { key: "poisson", label: "Poisson" },
+      { key: "grillades", label: "Grillades" },
+      { key: "desserts", label: "Desserts" },
+    ],
+    []
+  );
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    
-    // Animation de recherche
-    Animated.sequence([
-      Animated.timing(cardsAnim, {
-        toValue: 0.8,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardsAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  const norm = (s: string) => s.toLowerCase().replace(/\s|-/g, "");
+  const matchCat = (itemCat: string, key: string) => (key === "all" ? true : norm(itemCat) === norm(key));
 
-    // Si la recherche est vide, on restaure la liste complète
-    if (query.trim() === '') {
-      setFilteredRestaurants(restaurantsLubumbashi);
-    } else {
-      const filtered = restaurantsLubumbashi.filter(restaurant =>
-        restaurant.nom.toLowerCase().includes(query.toLowerCase()) ||
-        restaurant.cuisine.toLowerCase().includes(query.toLowerCase()) ||
-        restaurant.specialites.some(spec => spec.toLowerCase().includes(query.toLowerCase()))
-      );
-      setFilteredRestaurants(filtered);
-    }
-  };
+  // data filtrée
+  const data = useMemo(
+    () =>
+      restaurantsLubumbashi.filter(
+        (r) =>
+          (matchCat(r.cuisine, selectedCatKey) || selectedCatKey === "all") &&
+          (r.nom.toLowerCase().includes(search.toLowerCase()) ||
+            r.cuisine.toLowerCase().includes(search.toLowerCase()) ||
+            r.specialites.some((sp) => sp.toLowerCase().includes(search.toLowerCase())))
+      ),
+    [search, selectedCatKey]
+  );
 
-  const handleRestaurantPress = (restaurant: Restaurant) => {
-    console.log('Restaurant sélectionné:', restaurant.nom);
-    setSelectedRestaurant(restaurant);
-    setShowDetails(true);
-  };
+  // Swiper
+  const swiperRef = useRef<Swiper<Restaurant>>(null);
+  const [cardIndex, setCardIndex] = useState(0);
+  const { height: SCREEN_HEIGHT} = Dimensions.get('window');
 
-  const handleInvitePress = (restaurant: Restaurant) => {
-    console.log('Invitation pour:', restaurant.nom);
-    setSelectedRestaurant(restaurant);
-    setShowInviteSheet(true);
-  };
+  const openDetails = (id: string) =>
+    router.push({ pathname: "/restaurants/[id]", params: { id } });
 
-  const handleSendInvitation = (inviteData: any) => {
-    console.log('Invitation envoyée:', inviteData);
-    // Ici, vous pourriez envoyer l'invitation via email ou SMS
-    // Pour l'instant, on simule juste l'envoi
-  };
+  const openInvite = (r: Restaurant) => setSelectedRestaurant(r);
+  const closeInvite = () => setSelectedRestaurant(null);
 
-  const closeModals = () => {
-    setShowDetails(false);
-    setShowInviteSheet(false);
-    setSelectedRestaurant(null);
-  };
-
-  return (
-    <SafeAreaView style={commonStyles.container}>
-      <Animated.View
+  // ---- Card Tinder (hero)
+  const renderSwipeCard = (r?: Restaurant) => {
+    if (!r) return <View />;
+    return (
+      <View
         style={{
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
+          width: SCREEN_WIDTH * 0.88,
+          alignSelf: "center",
+          borderRadius: 28,
+          overflow: "hidden",
+          backgroundColor: colors.card,
+          elevation: 10,
+          shadowColor: "#000",
+          shadowOpacity: 0.15,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
+          // IMPORTANT: limite la hauteur de la carte pour qu'elle reste dans la fenêtre visible
+          maxHeight: SCREEN_HEIGHT * 0.76,
         }}
       >
-        <LinearGradient
-          colors={[colors.primary, colors.accent]}
-          style={commonStyles.gradientHeader}
-        >
-          <Text style={[commonStyles.title, { color: colors.textWhite, marginBottom: 5 }]}>
-            Restaurants de Lubumbashi
-          </Text>
-          <Text style={[commonStyles.text, { color: colors.textWhite, marginBottom: 0 }]}>
-            Découvrez les meilleurs restaurants et invitez vos amis
-          </Text>
-        </LinearGradient>
-      </Animated.View>
-
-      <Animated.View 
-        style={{ 
-          paddingHorizontal: 20, 
-          marginBottom: 20,
-          opacity: searchAnim,
-          transform: [
-            {
-              scale: searchAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.9, 1],
-              }),
-            }
-          ],
-        }}
-      >
-        <View style={commonStyles.searchBar}>
-          <Icon name="search" size={20} color={colors.textLight} />
-          <TextInput
+        {/* Image */}
+        <View style={{ height: 300, backgroundColor: "#eee" }}>
+          <Image source={{ uri: r.image }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+          {/* note */}
+          <View
             style={{
-              flex: 1,
-              marginLeft: 10,
-              fontSize: 16,
-              color: colors.text,
+              position: "absolute",
+              top: 12,
+              left: 12,
+              backgroundColor: "rgba(0,0,0,0.55)",
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: radius.pill,
+              flexDirection: "row",
+              alignItems: "center",
             }}
-            placeholder="Rechercher un restaurant, cuisine..."
-            placeholderTextColor={colors.textLight}
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => handleSearch('')}>
-              <Icon name="close-circle" size={20} color={colors.textLight} />
-            </TouchableOpacity>
-          )}
+          >
+            <Icon name="star" size={14} color="#FFD452" />
+            <Text style={{ color: "#fff", marginLeft: 6, fontFamily: typography.semiBold, fontSize: 12 }}>
+              {r.note.toFixed(1)}
+            </Text>
+          </View>
+          {/* tag cuisine */}
+          <View
+            style={{
+              position: "absolute",
+              bottom: 12,
+              right: 12,
+              backgroundColor: "rgba(255,255,255,0.9)",
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: radius.pill,
+            }}
+          >
+            <Text style={{ fontFamily: typography.semiBold, fontSize: 12, color: colors.text }}>{r.cuisine}</Text>
+          </View>
         </View>
-      </Animated.View>
 
-      <Animated.View
-        style={{
-          flex: 1,
-          opacity: cardsAnim,
-          transform: [{ scale: cardsAnim }],
-        }}
-      >
-        <ScrollView
-          style={{ flex: 1, paddingHorizontal: 20 }}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
-        >
-          {filteredRestaurants.length === 0 ? (
-            <Animated.View 
-              style={{ 
-                alignItems: 'center', 
-                marginTop: 50,
-                opacity: fadeAnim,
+        {/* contenu */}
+        <View style={{ padding: spacing.lg }}>
+          <Text
+            numberOfLines={1}
+            style={{ fontFamily: typography.bold, fontSize: 22, color: colors.text, marginBottom: 6 }}
+          >
+            {r.nom}
+          </Text>
+
+          <Text
+            numberOfLines={2}
+            style={{ fontFamily: typography.regular, fontSize: 14, color: colors.textLight, marginBottom: 12 }}
+          >
+            {r.description}
+          </Text>
+
+          {/* adresse + prix */}
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
+            <Icon name="location" size={16} color={colors.textLight} />
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: typography.regular,
+                fontSize: 13,
+                color: colors.textLight,
+                marginLeft: 6,
+                flex: 1,
+                marginRight: 8,
               }}
             >
-              <Icon name="restaurant-outline" size={60} color={colors.textLight} />
-              <Text style={[commonStyles.subtitle, { marginTop: 20, color: colors.textLight }]}>
-                Aucun restaurant trouvé
-              </Text>
-              <Text style={[commonStyles.text, { textAlign: 'center' }]}>
-                Essayez de modifier votre recherche
-              </Text>
-            </Animated.View>
-          ) : (
-            filteredRestaurants.map((restaurant, index) => (
-              <Animated.View
-                key={restaurant.id}
-                style={{
-                  opacity: cardsAnim,
-                  transform: [
-                    {
-                      translateY: cardsAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [50, 0],
-                      }),
-                    }
-                  ],
-                }}
-              >
-                <RestaurantCard
-                  restaurant={restaurant}
-                  onPress={() => handleRestaurantPress(restaurant)}
-                  onInvite={() => handleInvitePress(restaurant)}
-                />
-              </Animated.View>
-            ))
-          )}
-        </ScrollView>
-      </Animated.View>
+              {r.adresse}
+            </Text>
 
-      <BottomNavigation currentRoute="restaurants" />
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: radius.pill,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+              }}
+            >
+              <Text style={{ fontFamily: typography.semiBold, fontSize: 12, color: colors.text }}>
+                {r.prixMoyen}
+              </Text>
+            </View>
+          </View>
 
-      {/* Modal pour les détails du restaurant */}
-      {/* Utilise un Modal natif pour afficher RestaurantDetails */}
-      <Modal
-        visible={showDetails}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        {selectedRestaurant && (
-          <RestaurantDetails
-            restaurant={selectedRestaurant}
-            onClose={closeModals}
-            onInvite={() => {
-              setShowDetails(false);
-              setShowInviteSheet(true);
+          {/* actions */}
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity
+              onPress={() => openDetails(r.id)}
+              activeOpacity={0.9}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: radius.pill,
+                paddingVertical: 12,
+                alignItems: "center",
+                marginRight: 10,
+                backgroundColor: colors.card,
+              }}
+            >
+              <Text style={{ fontFamily: typography.semiBold, color: colors.text }}>Voir détails</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => openInvite(r)}
+              activeOpacity={0.9}
+              style={{
+                flex: 1,
+                backgroundColor: colors.primary,
+                borderRadius: radius.pill,
+                paddingVertical: 12,
+                alignItems: "center",
+                flexDirection: "row",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="person-add" size={18} color="#fff" />
+              <Text style={{ color: "#fff", marginLeft: 8, fontFamily: typography.semiBold }}>Inviter</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  // ---- Card pour la liste verticale (reuse)
+  const renderListItem = ({ item }: { item: Restaurant }) => (
+    <View style={{ marginBottom: spacing.lg }}>{renderSwipeCard(item)}</View>
+  );
+
+  return (
+    <>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          // Padding léger global (le vrai espace bas est géré dans le Swiper via containerStyle)
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* HEADER (comme Home) */}
+          <LinearGradient
+            colors={["#FFFFFF", "rgba(255,255,255,0.85)"]}
+            style={{ paddingTop: 48, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg }}
+          >
+            <Text style={{ fontFamily: typography.bold, fontSize: 26, color: colors.text }}>
+              Restaurants à Lubumbashi
+            </Text>
+            <Text style={{ color: colors.textLight, fontSize: 14, fontFamily: typography.regular, marginTop: 6 }}>
+              Découvrez les meilleurs restaurants de la ville
+            </Text>
+
+            {/* Recherche */}
+            <View
+              style={{
+                marginTop: spacing.lg,
+                flexDirection: "row",
+                alignItems: "center",
+                borderRadius: radius.pill,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: "rgba(255,255,255,0.9)",
+                paddingHorizontal: spacing.md,
+                height: 48,
+              }}
+            >
+              <Icon name="search" size={18} color={colors.textLight} />
+              <TextInput
+                placeholder="Rechercher un restaurant, un plat..."
+                placeholderTextColor={colors.textLight}
+                style={{ marginLeft: 8, flex: 1, fontFamily: typography.regular, color: colors.text }}
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+          </LinearGradient>
+
+          {/* CATEGORIES */}
+          <View style={{ paddingVertical: spacing.md }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+            >
+              {categories.map((c) => {
+                const active = selectedCatKey === c.key;
+                return (
+                  <TouchableOpacity
+                    key={c.key}
+                    onPress={() => setSelectedCatKey(c.key)}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                      borderRadius: radius.pill,
+                      borderWidth: 1,
+                      borderColor: active ? colors.primary : colors.border,
+                      backgroundColor: active ? colors.card : "rgba(255,255,255,0.6)",
+                      marginRight: 8,
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: active ? typography.semiBold : typography.regular,
+                        color: active ? colors.text : colors.textLight,
+                        fontSize: 13,
+                      }}
+                    >
+                      {c.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* TITRE + TOGGLE */}
+          <View
+            style={{
+              paddingHorizontal: spacing.lg,
+              marginTop: spacing.sm,
+              marginBottom: spacing.md,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}
-          />
-        )}
-      </Modal>
+          >
+            <Text style={{ fontFamily: typography.bold, fontSize: 20, color: colors.text }}>
+              {showFullList ? "Tous les restaurants" : "Swipe & Découvre"}
+            </Text>
 
-      {/* Modal pour inviter un ami */}
-      <Modal
-        visible={showInviteSheet}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        {selectedRestaurant && (
-          <InviteFriendSheet
-            restaurant={selectedRestaurant}
-            onClose={closeModals}
-            onSendInvitation={handleSendInvitation}
-          />
-        )}
-      </Modal>
-    </SafeAreaView>
+            <TouchableOpacity
+              onPress={() => setShowFullList((v) => !v)}
+              style={{ paddingVertical: 6, paddingHorizontal: 10 }}
+            >
+              <Text style={{ fontFamily: typography.semiBold, color: colors.primary }}>
+                {showFullList ? "Retour au swipe" : "Voir la liste complète"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* CONTENU */}
+          {!showFullList ? (
+            data.length === 0 ? (
+              <View style={{ alignItems: "center", marginTop: 40 }}>
+                <Text style={{ color: colors.textLight }}>Aucun résultat</Text>
+              </View>
+            ) : (
+              // SWIPER — la clé est ici: containerStyle + cardStyle
+              <View style={{ height: SCREEN_HEIGHT * 0.76, paddingBottom: 30, }}>
+                <Swiper
+                  ref={swiperRef}
+                  backgroundColor="transparent"
+                  cards={data}
+                  cardIndex={cardIndex}
+                  stackSize={3}
+                  stackSeparation={14}
+                  stackScale={10}
+                  verticalSwipe={true}
+                  renderCard={(card) => renderSwipeCard(card as Restaurant)}
+                  onSwiped={() => setCardIndex((prev) => prev + 1)}
+                  onSwipedAll={() => setCardIndex(0)}
+                  cardHorizontalMargin={0}
+                  cardVerticalMargin={0}
+                  // >>> empêche le recouvrement par le footer <<<
+                  containerStyle={{
+                    paddingBottom: insets.bottom + NAV_HEIGHT + 16,
+                    // on fixe aussi une hauteur raisonnable pour le conteneur
+                    height: SCREEN_HEIGHT * 0.76,
+                  }}
+                  cardStyle={{
+                    // carte jamais plus haute que le conteneur
+                    height: SCREEN_HEIGHT * 0.76,
+                    alignSelf: "center",
+                  }}
+                  overlayLabels={{
+                    left: {
+                      title: "PASS",
+                      style: {
+                        label: {
+                          borderWidth: 2,
+                          borderColor: colors.border,
+                          color: colors.text,
+                          fontFamily: typography.bold,
+                        },
+                      },
+                    },
+                    right: {
+                      title: "NEXT",
+                      style: {
+                        label: {
+                          borderWidth: 2,
+                          borderColor: colors.primary,
+                          color: colors.primary,
+                          fontFamily: typography.bold,
+                        },
+                      },
+                    },
+                  }}
+                  animateOverlayLabelsOpacity
+                  animateCardOpacity
+                />
+              </View>
+            )
+          ) : (
+            // LISTE VERTICALE
+            <FlatList
+              data={data}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+              ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
+              renderItem={renderListItem}
+            />
+          )}
+
+          {/* Spacer de sécurité sous le contenu */}
+          <View style={{ height: insets.bottom + NAV_HEIGHT + 1 }} />
+        </ScrollView>
+
+        {/* MODAL INVITER */}
+        <Modal visible={!!selectedRestaurant} animationType="slide" presentationStyle="pageSheet">
+          {selectedRestaurant && (
+            <InviteFriendSheet
+              restaurant={selectedRestaurant}
+              onClose={closeInvite}
+              onSendInvitation={(d: any) => {
+                console.log("Invitation envoyée:", d);
+                closeInvite();
+              }}
+            />
+          )}
+        </Modal>
+        {/* Footer en dehors du SafeAreaView */}
+        <BottomNavigation currentRoute="restaurants" />
+      </SafeAreaView>
+    </>
   );
 }

@@ -1,12 +1,8 @@
-
-// ProfileEditSheet
-// Petit composant utilisé dans un bottom sheet qui permet de modifier
-// les informations de l'utilisateur (nom, email, téléphone).
-// Il envoie les modifications via `onUpdate` puis ferme le sheet.
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
-import { User } from '../types/User';
+// ProfileEditSheet.tsx (NOUVEL STYLE)
+import React, { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { User } from "../types/User";
+import { useTheme } from "../styles/theme";
 
 interface ProfileEditSheetProps {
   user: User;
@@ -15,37 +11,67 @@ interface ProfileEditSheetProps {
 }
 
 export default function ProfileEditSheet({ user, onUpdate, onClose }: ProfileEditSheetProps) {
+  const { colors, spacing, radius, typography } = useTheme();
+
   const [nom, setNom] = useState(user.nom);
   const [email, setEmail] = useState(user.email);
   const [telephone, setTelephone] = useState(user.telephone);
+  const [bio, setBio] = useState(user.bio || "");
 
   const handleSave = () => {
     if (!nom || !email || !telephone) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      Alert.alert("Erreur", "Veuillez remplir tous les champs");
       return;
     }
 
-    onUpdate({ nom, email, telephone });
+    onUpdate({ nom, email, telephone, bio });
     onClose();
-    Alert.alert('Succès', 'Profil mis à jour avec succès');
+    Alert.alert("Succès", "Profil mis à jour avec succès");
   };
 
   return (
-    <View style={{ padding: 20 }}>
-      <Text style={[commonStyles.title, { fontSize: 20, marginBottom: 20 }]}>
+    <View style={{ padding: spacing.lg }}>
+      <Text
+        style={{
+          fontFamily: typography.bold,
+          fontSize: 20,
+          color: colors.text,
+          marginBottom: spacing.lg,
+        }}
+      >
         Modifier le profil
       </Text>
 
       <TextInput
-        style={commonStyles.input}
+        style={{
+          borderWidth: 2,
+          borderColor: colors.primary,
+          borderRadius: radius.md,
+          padding: spacing.md,
+          marginBottom: spacing.md,
+          backgroundColor: colors.backgroundAlt,
+          color: colors.text,
+          fontFamily: typography.regular,
+        }}
         placeholder="Nom complet"
+        placeholderTextColor={colors.textLight}
         value={nom}
         onChangeText={setNom}
       />
 
       <TextInput
-        style={commonStyles.input}
-        placeholder="Adresse e-mail"
+        style={{
+          borderWidth: 2,
+          borderColor: colors.primary,
+          borderRadius: radius.md,
+          padding: spacing.md,
+          marginBottom: spacing.md,
+          backgroundColor: colors.backgroundAlt,
+          color: colors.text,
+          fontFamily: typography.regular,
+        }}
+        placeholder="Adresse email"
+        placeholderTextColor={colors.textLight}
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -53,26 +79,69 @@ export default function ProfileEditSheet({ user, onUpdate, onClose }: ProfileEdi
       />
 
       <TextInput
-        style={commonStyles.input}
-        placeholder="Numéro de téléphone"
+        style={{
+          borderWidth: 2,
+          borderColor: colors.primary,
+          borderRadius: radius.md,
+          padding: spacing.md,
+          marginBottom: spacing.md,
+          backgroundColor: colors.backgroundAlt,
+          color: colors.text,
+          fontFamily: typography.regular,
+        }}
+        placeholder="Téléphone"
+        placeholderTextColor={colors.textLight}
         value={telephone}
         onChangeText={setTelephone}
         keyboardType="phone-pad"
       />
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
+      <TextInput
+        style={{
+          borderWidth: 2,
+          borderColor: colors.primary,
+          borderRadius: radius.md,
+          padding: spacing.md,
+          marginBottom: spacing.xl,
+          height: 100,
+          backgroundColor: colors.backgroundAlt,
+          color: colors.text,
+          fontFamily: typography.regular,
+          textAlignVertical: "top",
+        }}
+        placeholder="Votre bio (ex: Passionné de gastronomie congolaise)"
+        placeholderTextColor={colors.textLight}
+        value={bio}
+        onChangeText={setBio}
+        multiline
+      />
+
+      <View style={{ flexDirection: "row", gap: 12 }}>
         <TouchableOpacity
-          style={[buttonStyles.secondary, { flex: 1, marginRight: 10 }]}
           onPress={onClose}
+          style={{
+            flex: 1,
+            borderWidth: 2,
+            borderColor: colors.primary,
+            paddingVertical: 14,
+            borderRadius: radius.pill,
+            alignItems: "center",
+          }}
         >
-          <Text style={buttonStyles.textSecondary}>Annuler</Text>
+          <Text style={{ color: colors.primary, fontFamily: typography.semiBold }}>Annuler</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[buttonStyles.primary, { flex: 1, marginLeft: 10 }]}
           onPress={handleSave}
+          style={{
+            flex: 1,
+            backgroundColor: colors.primary,
+            paddingVertical: 14,
+            borderRadius: radius.pill,
+            alignItems: "center",
+          }}
         >
-          <Text style={buttonStyles.text}>Sauvegarder</Text>
+          <Text style={{ color: "#fff", fontFamily: typography.semiBold }}>Sauvegarder</Text>
         </TouchableOpacity>
       </View>
     </View>

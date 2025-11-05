@@ -1,18 +1,28 @@
+// Types pour les restaurants
+// Backend pourra plus tard alimenter ces champs.
 
-// Types pour les restaurants et invitations
-// Utilisez ces interfaces pour typer les données venant du backend
 export interface Restaurant {
   id: string;
   nom: string;
-  cuisine: string; // ex: 'Congolaise', 'Italienne'
+  cuisine: string;              // ex: 'Congolaise', 'Italienne'
   adresse: string;
   telephone: string;
-  image: string; // URL
-  note: number; // note moyenne (ex: 4.5)
-  prixMoyen: string; // ex: '€', '$$'
+  image: string;                // (garde la principale)
+  logo: string;                 // <<< ajouté
+  photos: string[];             // <<< ajouté = carrousel
+  note: number;                 // note moyenne
+  prixMoyen: string;            // '$$' etc
   description: string;
-  horaires: string; // texte libre
+  horaires: string;
   specialites: string[];
+
+  menu?: {
+    id: string;
+    nom: string;
+    description?: string;
+    prix: string;
+    photosMenu?: string[];
+  }[];
 }
 
 export interface Invitation {

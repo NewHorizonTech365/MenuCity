@@ -1,584 +1,592 @@
+// components/InviteFriendSheet.tsx
+import React, { useEffect, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  Linking,
+  Platform,
+  Dimensions,
+  Animated,
+  Share as RNShare,
+} from "react-native";
+import * as Clipboard from "expo-clipboard";
+import { Restaurant } from "../types/Restaurant";
+import { useTheme } from "../styles/theme";
+import Icon from "./Icon";
 
-// InviteFriendSheet
-// Ce composant fournit une UI complète pour préparer et partager une
-// invitation à un restaurant. Il inclut :
-// - Un formulaire (nom, email, date, heure, message)
-// - Des fonctions pour partager via WhatsApp, Facebook, Instagram, Email, SMS
-// - Des animations d'entrée et d'affichage des options de partage
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ScrollView, Animated, Linking, Platform } from 'react-native';
-import { Restaurant } from '../types/Restaurant';
-import { colors, commonStyles, buttonStyles } from '../styles/commonStyles';
-import Icon from './Icon';
-import * as Sharing from 'expo-sharing';
-import * as Clipboard from 'expo-clipboard';
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+type InvitePayload = {
+  restaurantId: string;
+  inviteEmail: string;
+  inviteNom: string;
+  message: string;
+  dateProposee: string;
+  heureProposee: string;
+};
 
 interface InviteFriendSheetProps {
   restaurant: Restaurant;
   onClose: () => void;
-  onSendInvitation: (inviteData: {
-    restaurantId: string;
-    inviteEmail: string;
-    inviteNom: string;
-    message: string;
-    dateProposee: string;
-    heureProposee: string;
-  }) => void;
+  onSendInvitation: (inviteData: InvitePayload) => void;
 }
 
-export default function InviteFriendSheet({ restaurant, onClose, onSendInvitation }: InviteFriendSheetProps) {
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteNom, setInviteNom] = useState('');
-  const [message, setMessage] = useState(`Salut ! J'aimerais t'inviter à dîner chez ${restaurant.nom}. C'est un excellent restaurant de ${restaurant.cuisine.toLowerCase()} à Lubumbashi. Qu'en dis-tu ?`);
-  const [dateProposee, setDateProposee] = useState('');
-  const [heureProposee, setHeureProposee] = useState('');
-  const [showShareOptions, setShowShareOptions] = useState(false);
+export default function InviteFriendSheet({
+  restaurant,
+  onClose,
+  onSendInvitation,
+}: InviteFriendSheetProps) {
+  const { colors, spacing, radius, typography } = useTheme();
 
-  // Animations
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  // ------- Form state
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteNom, setInviteNom] = useState("");
+  const [dateProposee, setDateProposee] = useState("");
+  const [heureProposee, setHeureProposee] = useState("");
+  const [message, setMessage] = useState(
+    `Salut ! J'aimerais t'inviter à dîner chez ${restaurant.nom}. C'est un excellent restaurant de ${
+      restaurant.cuisine
+    } à Lubumbashi. Qu'en dis-tu ?`
+  );
+
+  // ------- Enter animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const shareOptionsAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+  const scaleAnim = useRef(new Animated.Value(0.98)).current;
+
+  // ------- Share bottom sheet
+  const [showShare, setShowShare] = useState(false);
+  const sheetY = useRef(new Animated.Value(SCREEN_HEIGHT)).current; // start hidden below
+  const sheetOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Animation d'entrée
     Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 100,
-        friction: 8,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 260, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8, tension: 90 }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim, scaleAnim]);
 
-  const animateShareOptions = () => {
-    setShowShareOptions(!showShareOptions);
-    Animated.spring(shareOptionsAnim, {
-      toValue: showShareOptions ? 0 : 1,
-      tension: 100,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
+  const openShareSheet = () => {
+    setShowShare(true);
+    // small delay to ensure mount before anim
+    requestAnimationFrame(() => {
+      Animated.parallel([
+        Animated.timing(sheetY, { toValue: SCREEN_HEIGHT * 0.2, duration: 300, useNativeDriver: true }),
+        Animated.timing(sheetOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    });
   };
 
+  const closeShareSheet = () => {
+    Animated.parallel([
+      Animated.timing(sheetY, { toValue: SCREEN_HEIGHT, duration: 260, useNativeDriver: true }),
+      Animated.timing(sheetOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (finished) setShowShare(false);
+    });
+  };
+
+  // ------- Helpers
   const generateInviteMessage = () => {
-    const appDownloadLink = Platform.OS === 'ios' 
-      ? 'https://apps.apple.com/app/votre-app' 
-      : 'https://play.google.com/store/apps/details?id=votre.app';
-    
-    // Retourne le texte complet à partager. Inclut le message personnalisé,
-    // les informations du restaurant et un lien de téléchargement vers l'app.
-    return `${message}\n\n📍 ${restaurant.nom}\n📍 ${restaurant.adresse}\n🍽️ ${restaurant.cuisine}\n📅 ${dateProposee} à ${heureProposee}\n\n💫 Télécharge notre app pour réserver: ${appDownloadLink}`;
+    const appDownloadLink =
+      Platform.OS === "ios"
+        ? "https://apps.apple.com/app/votre-app"
+        : "https://play.google.com/store/apps/details?id=votre.app";
+    return `${message}\n\n📍 ${restaurant.nom}\n📍 ${restaurant.adresse}\n🍽 ${restaurant.cuisine}\n📅 ${dateProposee} à ${heureProposee}\n\n💫 Télécharge notre app pour réserver: ${appDownloadLink}`;
   };
 
+  // ------- Share actions
   const shareViaWhatsApp = async () => {
-    const phoneNumber = ''; // Vous pouvez demander le numéro de téléphone
     const text = encodeURIComponent(generateInviteMessage());
     const url = `whatsapp://send?text=${text}`;
-    
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-        console.log('Invitation partagée via WhatsApp');
-      } else {
-        Alert.alert('WhatsApp non disponible', 'WhatsApp n\'est pas installé sur cet appareil');
-      }
-    } catch (error) {
-      console.log('Erreur WhatsApp:', error);
-      Alert.alert('Erreur', 'Impossible d\'ouvrir WhatsApp');
+      const ok = await Linking.canOpenURL(url);
+      if (ok) await Linking.openURL(url);
+      else Alert.alert("WhatsApp non disponible", "WhatsApp n'est pas installé sur cet appareil");
+    } catch {
+      Alert.alert("Erreur", "Impossible d'ouvrir WhatsApp");
     }
   };
 
   const shareViaFacebook = async () => {
+    // on passe par le sharer web (plus fiable cross-platform)
     const text = encodeURIComponent(generateInviteMessage());
-    const url = `fb://facewebmodal/f?href=https://www.facebook.com/sharer/sharer.php?u=${text}`;
-    
+    const webUrl =`https://www.facebook.com/sharer/sharer.php?u=${text}`;
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-        console.log('Invitation partagée via Facebook');
-      } else {
-        // Fallback vers le navigateur web
-        const webUrl = `https://www.facebook.com/sharer/sharer.php?u=${text}`;
-        await Linking.openURL(webUrl);
-      }
-    } catch (error) {
-      console.log('Erreur Facebook:', error);
-      Alert.alert('Erreur', 'Impossible d\'ouvrir Facebook');
+      await Linking.openURL(webUrl);
+    } catch {
+      Alert.alert("Erreur", "Impossible d'ouvrir Facebook");
     }
   };
 
   const shareViaInstagram = async () => {
-    // Instagram ne permet pas le partage direct de texte, on copie dans le presse-papier
+    // Instagram n'autorise pas le texte direct → on copie
     await Clipboard.setStringAsync(generateInviteMessage());
     Alert.alert(
-      'Message copié !',
-      'Le message d\'invitation a été copié. Vous pouvez maintenant l\'ouvrir Instagram et le coller dans un message.',
+      "Message copié",
+      "Le message a été copié. Ouvrez Instagram et collez-le dans votre message.",
       [
-        { text: 'Annuler', style: 'cancel' },
-        { 
-          text: 'Ouvrir Instagram', 
+        { text: "OK" },
+        {
+          text: "Ouvrir Instagram",
           onPress: async () => {
-            try {
-              const supported = await Linking.canOpenURL('instagram://');
-              if (supported) {
-                await Linking.openURL('instagram://');
-              } else {
-                Alert.alert('Instagram non disponible', 'Instagram n\'est pas installé sur cet appareil');
-              }
-            } catch (error) {
-              console.log('Erreur Instagram:', error);
-            }
-          }
-        }
+            const ok = await Linking.canOpenURL("instagram://");
+            if (ok) await Linking.openURL("instagram://");
+            else Alert.alert("Instagram non disponible", "Instagram n'est pas installé");
+          },
+        },
       ]
     );
   };
 
-  const shareViaEmail = () => {
+  const shareViaEmail = async () => {
     const subject = encodeURIComponent(`Invitation à dîner chez ${restaurant.nom}`);
     const body = encodeURIComponent(generateInviteMessage());
     const url = `mailto:${inviteEmail}?subject=${subject}&body=${body}`;
-    
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir l\'application email');
-    });
+    try {
+      const ok = await Linking.canOpenURL(url);
+      if (ok) await Linking.openURL(url);
+      else Alert.alert("Erreur", "Aucune app email disponible");
+    } catch {
+      Alert.alert("Erreur", "Impossible d'ouvrir l'email");
+    }
   };
 
   const shareViaGeneric = async () => {
     try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(generateInviteMessage());
-        console.log('Invitation partagée via partage générique');
-      } else {
-        // Fallback: copier dans le presse-papier
-        await Clipboard.setStringAsync(generateInviteMessage());
-        Alert.alert('Message copié !', 'Le message d\'invitation a été copié dans le presse-papier');
-      }
-    } catch (error) {
-      console.log('Erreur partage:', error);
-      Alert.alert('Erreur', 'Impossible de partager le message');
+      await RNShare.share({ message: generateInviteMessage() });
+    } catch {
+      await Clipboard.setStringAsync(generateInviteMessage());
+      Alert.alert("Copié", "Le message a été copié dans le presse-papier");
     }
   };
 
   const copyInviteLink = async () => {
-    const appDownloadLink = Platform.OS === 'ios' 
-      ? 'https://apps.apple.com/app/votre-app' 
-      : 'https://play.google.com/store/apps/details?id=votre.app';
-    
+    const appDownloadLink =
+      Platform.OS === "ios"
+        ? "https://apps.apple.com/app/votre-app"
+        : "https://play.google.com/store/apps/details?id=votre.app";
     await Clipboard.setStringAsync(appDownloadLink);
-    Alert.alert('Lien copié !', 'Le lien de téléchargement de l\'app a été copié');
+    Alert.alert("Lien copié", "Le lien de téléchargement a été copié");
   };
 
-  const handleSendInvitation = () => {
-    if (!inviteNom.trim()) {
-      Alert.alert('Erreur', 'Veuillez saisir le nom de votre ami');
-      return;
-    }
+  // ------- Submit
+  const handleSend = () => {
+    if (!inviteNom.trim()) return Alert.alert("Erreur", "Veuillez saisir le nom de votre ami");
+    if (!dateProposee.trim()) return Alert.alert("Erreur", "Veuillez proposer une date");
+    if (!heureProposee.trim()) return Alert.alert("Erreur", "Veuillez proposer une heure");
 
-    if (!dateProposee.trim()) {
-      Alert.alert('Erreur', 'Veuillez proposer une date');
-      return;
-    }
-
-    if (!heureProposee.trim()) {
-      Alert.alert('Erreur', 'Veuillez proposer une heure');
-      return;
-    }
-
-    // Animation de succès
+    // petit feedback
     Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 1.1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
+      Animated.timing(scaleAnim, { toValue: 1.02, duration: 120, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
     ]).start();
 
-    onSendInvitation({
+    const payload: InvitePayload = {
       restaurantId: restaurant.id,
       inviteEmail: inviteEmail.trim(),
       inviteNom: inviteNom.trim(),
       message: message.trim(),
       dateProposee: dateProposee.trim(),
       heureProposee: heureProposee.trim(),
-    });
+    };
 
-    Alert.alert(
-      'Prêt à partager !',
-      `Votre invitation pour ${restaurant.nom} est prête. Choisissez comment la partager.`,
-      [{ text: 'OK', onPress: () => setShowShareOptions(true) }]
-    );
+    onSendInvitation(payload);
+    openShareSheet();
   };
 
+  // ------- Share options model
   const shareOptions = [
-    { name: 'WhatsApp', icon: 'logo-whatsapp', color: '#25D366', action: shareViaWhatsApp },
-    { name: 'Facebook', icon: 'logo-facebook', color: '#1877F2', action: shareViaFacebook },
-    { name: 'Instagram', icon: 'logo-instagram', color: '#E4405F', action: shareViaInstagram },
-    { name: 'Email', icon: 'mail', color: colors.primary, action: shareViaEmail },
-    { name: 'Autre', icon: 'share', color: colors.accent, action: shareViaGeneric },
-  ];
+    { name: "WhatsApp", icon: "logo-whatsapp", color: "#25D366", action: shareViaWhatsApp },
+    { name: "Facebook", icon: "logo-facebook", color: "#1877F2", action: shareViaFacebook },
+    { name: "Instagram", icon: "logo-instagram", color: "#E4405F", action: shareViaInstagram },
+    { name: "Email", icon: "mail", color: colors.primary, action: shareViaEmail },
+    { name: "Autre", icon: "share", color: colors.accent, action: shareViaGeneric },
+  ] as const;
 
   return (
-    <Animated.View 
-      style={[
-        styles.container,
-        {
-          opacity: fadeAnim,
-          transform: [
-            {
-              translateY: slideAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [50, 0],
-              }),
-            },
-            { scale: scaleAnim }
-          ],
-        }
-      ]}
+    <Animated.View
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+      }}
     >
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Icon name="close" size={24} color={colors.text} />
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          borderBottomWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.background,
+        }}
+      >
+        <TouchableOpacity onPress={onClose} style={{ padding: 6 }}>
+          <Icon name="close" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Inviter un ami</Text>
-        <TouchableOpacity style={styles.shareToggleButton} onPress={animateShareOptions}>
-          <Icon name="share" size={24} color={colors.primary} />
+        <Text style={{ fontFamily: typography.semiBold, fontSize: 18, color: colors.text }}>
+          Inviter un ami
+        </Text>
+        <TouchableOpacity onPress={openShareSheet} style={{ padding: 6 }}>
+          <Icon name="share" size={22} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Animated.View 
-          style={[
-            styles.restaurantInfo,
-            {
-              transform: [
-                {
-                  scale: scaleAnim.interpolate({
-                    inputRange: [0.9, 1],
-                    outputRange: [0.95, 1],
-                  }),
-                }
-              ],
-            }
-          ]}
+      {/* Content */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Restaurant block */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: colors.card,
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            padding: spacing.md,
+            marginBottom: spacing.lg,
+          }}
         >
-          <Icon name="restaurant" size={24} color={colors.primary} />
-          <View style={styles.restaurantDetails}>
-            <Text style={styles.restaurantName}>{restaurant.nom}</Text>
-            <Text style={styles.restaurantCuisine}>{restaurant.cuisine}</Text>
-            <Text style={styles.restaurantAddress}>{restaurant.adresse}</Text>
+          <Icon name="restaurant" size={22} color={colors.primary} />
+          <View style={{ marginLeft: 12, flex: 1 }}>
+            <Text style={{ fontFamily: typography.semiBold, fontSize: 16, color: colors.text }}>
+              {restaurant.nom}
+            </Text>
+            <Text style={{ fontFamily: typography.regular, fontSize: 13, color: colors.textLight }}>
+              {restaurant.cuisine} • {restaurant.adresse}
+            </Text>
           </View>
-        </Animated.View>
+        </View>
 
-        {/* Options de partage animées */}
-        {showShareOptions && (
-          <Animated.View 
-            style={[
-              styles.shareOptionsContainer,
-              {
-                opacity: shareOptionsAnim,
-                transform: [
-                  {
-                    scale: shareOptionsAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.8, 1],
-                    }),
-                  }
-                ],
-              }
-            ]}
-          >
-            <Text style={styles.shareTitle}>Partager l'invitation</Text>
-            <View style={styles.shareOptions}>
-              {shareOptions.map((option, index) => (
-                <Animated.View
-                  key={option.name}
-                  style={[
-                    {
-                      transform: [
-                        {
-                          scale: shareOptionsAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, 1],
-                          }),
-                        }
-                      ],
-                    }
-                  ]}
-                >
-                  <TouchableOpacity
-                    style={[styles.shareOption, { backgroundColor: option.color }]}
-                    onPress={option.action}
-                  >
-                    <Icon name={option.icon} size={24} color={colors.textWhite} />
-                    <Text style={styles.shareOptionText}>{option.name}</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              ))}
-            </View>
-            
-            <TouchableOpacity style={styles.copyLinkButton} onPress={copyInviteLink}>
-              <Icon name="link" size={20} color={colors.primary} />
-              <Text style={styles.copyLinkText}>Copier le lien de téléchargement</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
+        {/* Form */}
+        <View>
+          <Text style={{ fontFamily: typography.semiBold, color: colors.text, marginBottom: 8 }}>
+            Nom de votre ami
+          </Text>
+          <TextInput
+            value={inviteNom}
+            onChangeText={setInviteNom}
+            placeholder="Ex: Jean Mukendi"
+            placeholderTextColor={colors.textLight}
+            style={{
+              height: 48,
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: colors.primary,
+              backgroundColor: colors.background,
+              paddingHorizontal: spacing.md,
+              fontFamily: typography.regular,
+              color: colors.text,
+            }}
+          />
 
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nom de votre ami</Text>
-            <TextInput
-              style={styles.input}
-              value={inviteNom}
-              onChangeText={setInviteNom}
-              placeholder="Ex: Jean Mukendi"
-              placeholderTextColor={colors.textLight}
-            />
-          </View>
+          <View style={{ height: spacing.md }} />
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email de votre ami (optionnel)</Text>
-            <TextInput
-              style={styles.input}
-              value={inviteEmail}
-              onChangeText={setInviteEmail}
-              placeholder="Ex: jean@example.com"
-              placeholderTextColor={colors.textLight}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
+          <Text style={{ fontFamily: typography.semiBold, color: colors.text, marginBottom: 8 }}>
+            Email de votre ami (optionnel)
+          </Text>
+          <TextInput
+            value={inviteEmail}
+            onChangeText={setInviteEmail}
+            placeholder="jean@example.com"
+            placeholderTextColor={colors.textLight}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            style={{
+              height: 48,
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.background,
+              paddingHorizontal: spacing.md,
+              fontFamily: typography.regular,
+              color: colors.text,
+            }}
+          />
 
-          <View style={styles.dateTimeContainer}>
-            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-              <Text style={styles.label}>Date proposée</Text>
+          <View style={{ height: spacing.md }} />
+
+          <View style={{ flexDirection: "row" }}>
+            <View style={{ flex: 1, marginRight: 6 }}>
+              <Text style={{ fontFamily: typography.semiBold, color: colors.text, marginBottom: 8 }}>
+                Date proposée
+              </Text>
               <TextInput
-                style={styles.input}
                 value={dateProposee}
                 onChangeText={setDateProposee}
-                placeholder="Ex: 25/01/2024"
+                placeholder="Ex: 25/12/2025"
                 placeholderTextColor={colors.textLight}
+                style={{
+                  height: 48,
+                  borderRadius: radius.lg,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                  paddingHorizontal: spacing.md,
+                  fontFamily: typography.regular,
+                  color: colors.text,
+                }}
               />
             </View>
-
-            <View style={[styles.inputGroup, { flex: 1, marginLeft: 10 }]}>
-              <Text style={styles.label}>Heure proposée</Text>
+            <View style={{ width: 12 }} />
+            <View style={{ flex: 1, marginLeft: 6 }}>
+              <Text style={{ fontFamily: typography.semiBold, color: colors.text, marginBottom: 8 }}>
+                Heure proposée
+              </Text>
               <TextInput
-                style={styles.input}
                 value={heureProposee}
                 onChangeText={setHeureProposee}
                 placeholder="Ex: 19h30"
                 placeholderTextColor={colors.textLight}
+                style={{
+                  height: 48,
+                  borderRadius: radius.lg,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                  paddingHorizontal: spacing.md,
+                  fontFamily: typography.regular,
+                  color: colors.text,
+                }}
               />
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Message personnalisé</Text>
-            <TextInput
-              style={[styles.input, styles.messageInput]}
-              value={message}
-              onChangeText={setMessage}
-              placeholder="Écrivez votre message d'invitation..."
-              placeholderTextColor={colors.textLight}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
+          <View style={{ height: spacing.md }} />
+
+          <Text style={{ fontFamily: typography.semiBold, color: colors.text, marginBottom: 8 }}>
+            Message personnalisé
+          </Text>
+          <TextInput
+            value={message}
+            onChangeText={setMessage}
+            placeholder="Écrivez votre message d'invitation..."
+            placeholderTextColor={colors.textLight}
+            multiline
+            textAlignVertical="top"
+            style={{
+              minHeight: 110,
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.background,
+              paddingHorizontal: spacing.md,
+              paddingTop: spacing.md,
+              fontFamily: typography.regular,
+              color: colors.text,
+              lineHeight: 20,
+            }}
+          />
         </View>
+
+        <View style={{ height: spacing.lg }} />
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.sendButton} onPress={handleSendInvitation}>
-          <Icon name="send" size={20} color={colors.textWhite} />
-          <Text style={styles.sendButtonText}>Préparer l'invitation</Text>
+      {/* Footer CTA */}
+      <View
+        style={{
+          padding: spacing.lg,
+          borderTopWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.background,
+        }}
+      >
+        <TouchableOpacity
+          onPress={handleSend}
+          activeOpacity={0.9}
+          style={{
+            backgroundColor: colors.primary,
+            borderRadius: radius.pill,
+            paddingVertical: 16,
+            alignItems: "center",
+            flexDirection: "row",
+            justifyContent: "center",
+          }}
+        >
+          <Icon name="send" size={20} color="#fff" />
+          <Text
+            style={{
+              marginLeft: 10,
+              color: "#fff",
+              fontFamily: typography.semiBold,
+              fontSize: 16,
+            }}
+          >
+            Préparer l'invitation
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* ---------- SHARE BOTTOM SHEET ---------- */}
+      {showShare && (
+        <View
+          pointerEvents="box-none"
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            justifyContent: "flex-end",
+          }}
+        >
+          {/* Backdrop */}
+          <Animated.View
+            style={{
+              ...StyleSheet.absoluteFillObject,
+              backgroundColor: "#000",
+              opacity: sheetOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 0.35],
+              }),
+            }}
+          >
+            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeShareSheet} />
+          </Animated.View>
+
+          {/* Sheet */}
+          <Animated.View
+            style={{
+              transform: [{ translateY: sheetY }],
+              backgroundColor: colors.card,
+              borderTopLeftRadius: radius.xl ?? 24,
+              borderTopRightRadius: radius.xl ?? 24,
+              paddingBottom: spacing.xl,
+              borderTopWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <View style={{ alignItems: "center", paddingTop: 8, paddingBottom: 4 }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 5,
+                  borderRadius: 3,
+                  backgroundColor: colors.border,
+                }}
+              />
+            </View>
+
+            <Text
+              style={{
+                textAlign: "center",
+                fontFamily: typography.semiBold,
+                color: colors.text,
+                fontSize: 16,
+                marginTop: spacing.sm,
+                marginBottom: spacing.lg,
+              }}
+            >
+              Partager l'invitation
+            </Text>
+
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "space-evenly",
+                rowGap: 14,
+                paddingHorizontal: spacing.lg,
+              }}
+            >
+              {shareOptions.map((opt) => (
+                <TouchableOpacity
+                  key={opt.name}
+                  onPress={opt.action}
+                  activeOpacity={0.85}
+                  style={{
+                    width: 86,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 62,
+                      height: 62,
+                      borderRadius: 31,
+                      backgroundColor: opt.color,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon name={opt.icon} size={26} color="#fff" />
+                  </View>
+                  <Text
+                    style={{
+                      marginTop: 8,
+                      textAlign: "center",
+                      fontFamily: typography.semiBold,
+                      fontSize: 12,
+                      color: colors.text,
+                    }}
+                  >
+                    {opt.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              onPress={copyInviteLink}
+              activeOpacity={0.85}
+              style={{
+                marginTop: spacing.lg,
+                marginHorizontal: spacing.lg,
+                paddingVertical: 12,
+                borderRadius: radius.pill,
+                borderWidth: 1.5,
+                borderColor: colors.primary,
+                alignItems: "center",
+                flexDirection: "row",
+                justifyContent: "center",
+                backgroundColor: colors.card,
+              }}
+            >
+              <Icon name="link" size={18} color={colors.primary} />
+              <Text
+                style={{
+                  marginLeft: 8,
+                  color: colors.primary,
+                  fontFamily: typography.semiBold,
+                }}
+              >
+                Copier le lien de téléchargement
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={closeShareSheet}
+              style={{
+                marginTop: spacing.md,
+                marginHorizontal: spacing.lg,
+                paddingVertical: 12,
+                borderRadius: radius.pill,
+                backgroundColor: colors.background,
+                borderWidth: 1,
+                borderColor: colors.border,
+                alignItems: "center",
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ fontFamily: typography.semiBold, color: colors.text }}>Fermer</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      )}
     </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: colors.backgroundAlt,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  shareToggleButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  restaurantInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.backgroundAlt,
-    borderRadius: 15,
-    padding: 16,
-    marginVertical: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    boxShadow: '0px 4px 15px rgba(210, 105, 30, 0.2)',
-    elevation: 4,
-  },
-  restaurantDetails: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  restaurantName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  restaurantCuisine: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    marginBottom: 2,
-  },
-  restaurantAddress: {
-    fontSize: 12,
-    color: colors.textLight,
-  },
-  shareOptionsContainer: {
-    backgroundColor: colors.backgroundAlt,
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  shareTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  shareOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-  },
-  shareOption: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 10,
-    boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.2)',
-    elevation: 3,
-  },
-  shareOptionText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textWhite,
-    marginTop: 4,
-  },
-  copyLinkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 25,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  copyLinkText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 8,
-  },
-  form: {
-    paddingBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  input: {
-    ...commonStyles.input,
-    borderColor: colors.primary,
-    borderWidth: 2,
-    borderRadius: 15,
-    backgroundColor: colors.backgroundAlt,
-  },
-  messageInput: {
-    height: 100,
-    paddingTop: 12,
-  },
-  dateTimeContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  footer: {
-    padding: 20,
-    backgroundColor: colors.backgroundAlt,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  sendButton: {
-    ...buttonStyles.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 25,
-  },
-  sendButtonText: {
-    ...buttonStyles.text,
-    marginLeft: 8,
-    fontSize: 16,
-  },
-});
+// petit StyleSheet utilitaire pour ...StyleSheet.absoluteFillObject
+import { StyleSheet } from "react-native";

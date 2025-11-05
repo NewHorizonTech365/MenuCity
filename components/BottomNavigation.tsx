@@ -1,15 +1,11 @@
-
-// Bottom navigation bar
-// Ce composant affiche une barre de navigation en bas avec 3 onglets.
-// - `currentRoute` doit être une clé ('home'|'restaurants'|'profile') pour
-//   indiquer quel onglet est actif.
-// - Lorsqu'on appuie sur un onglet, on exécute une petite animation puis
-//   on appelle `router.push` pour naviguer.
+// BottomNavigation.tsx modernisé glass + premium
 import React, { useRef } from 'react';
 import { View, TouchableOpacity, Text, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors } from '../styles/commonStyles';
+import { BlurView } from 'expo-blur';
+import { useTheme } from '../styles/theme';
 import Icon from './Icon';
+import { Dimensions } from 'react-native';
 
 interface BottomNavigationProps {
   currentRoute: string;
@@ -17,120 +13,98 @@ interface BottomNavigationProps {
 
 export default function BottomNavigation({ currentRoute }: BottomNavigationProps) {
   const router = useRouter();
-  // Animated values = échelle utilisée pour chaque onglet (pour l'effet "press")
+  const { colors, radius, spacing } = useTheme();
+
   const scaleAnims = useRef({
     home: new Animated.Value(1),
     restaurants: new Animated.Value(1),
     profile: new Animated.Value(1),
   }).current;
 
-  const handlePress = (route: string, path: string) => {
-    console.log('Navigation vers:', path);
-    
-    // Animation de pression
+  type TabKey = 'home' | 'restaurants' | 'profile';
+
+  const handlePress = (route: TabKey, path: string) => {
     Animated.sequence([
       Animated.timing(scaleAnims[route], {
-        toValue: 0.8,
-        duration: 100,
+        toValue: 0.85,
+        duration: 90,
         useNativeDriver: true,
       }),
       Animated.timing(scaleAnims[route], {
         toValue: 1,
-        duration: 150,
+        duration: 130,
         useNativeDriver: true,
       }),
     ]).start();
 
-    router.push(path);
+    router.push(path as any);
   };
 
-  // Configuration des onglets : clé, label, icône et chemin de navigation
-  const tabs = [
-    {
-      key: 'home',
-      label: 'Accueil',
-      icon: 'home',
-      path: '/home',
-    },
-    {
-      key: 'restaurants',
-      label: 'Restaurants',
-      icon: 'restaurant',
-      path: '/restaurants',
-    },
-    {
-      key: 'profile',
-      label: 'Profil',
-      icon: 'person',
-      path: '/profile',
-    },
+  const tabs: {key: TabKey; label: string; icon: string; path: string;}[] = [
+    { key: 'home', label: 'Accueil', icon: 'home', path: '/home' },
+    { key: 'restaurants', label: 'Restaurants', icon: 'restaurant', path: '/restaurants' },
+    { key: 'profile', label: 'Profil', icon: 'person', path: '/profile' },
   ];
 
   return (
-    <View style={{
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      backgroundColor: colors.backgroundAlt,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingBottom: 20,
-      paddingTop: 10,
-      paddingHorizontal: 20,
-      boxShadow: '0px -4px 15px rgba(0, 0, 0, 0.1)',
-      elevation: 10,
-    }}>
-      <View style={{
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-      }}>
+    <View style={{ position: 'absolute', bottom: 18, left: 16, right: 16 }}>
+      <BlurView
+        intensity={60}
+        tint="light"
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          borderRadius: radius.lg,
+          paddingVertical: 12,
+          paddingHorizontal: 18,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: 'rgba(255,255,255,0.8)',
+        }}
+      >
         {tabs.map((tab) => {
-          // isActive : indique si l'onglet courant est sélectionné
           const isActive = currentRoute === tab.key;
-          
+
           return (
             <Animated.View
               key={tab.key}
               style={{
-                // On utilise l'animation d'échelle pour créer un petit effet
                 transform: [{ scale: scaleAnims[tab.key] }],
               }}
             >
               <TouchableOpacity
+                onPress={() => handlePress(tab.key, tab.path)}
                 style={{
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 8,
-                  paddingHorizontal: 16,
-                  borderRadius: 20,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: radius.md,
                   backgroundColor: isActive ? colors.primary : 'transparent',
                   minWidth: 70,
                 }}
-                // Lors d'un appui on déclenche handlePress
-                onPress={() => handlePress(tab.key, tab.path)}
-                activeOpacity={0.7}
+                activeOpacity={0.6}
               >
-                {/* Icon : variant outline si inactif */}
-                <Icon 
-                  name={isActive ? tab.icon : `${tab.icon}-outline`} 
-                  size={24} 
-                  color={isActive ? colors.textWhite : colors.text} 
+                <Icon
+                  name={isActive ? tab.icon : `${tab.icon}-outline`}
+                  size={26}
+                  color={isActive ? '#fff' : colors.textLight}
                 />
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: isActive ? '600' : '400',
-                  color: isActive ? colors.textWhite : colors.text,
-                  marginTop: 4,
-                }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    marginTop: 2,
+                    color: isActive ? '#fff' : colors.textLight,
+                    fontFamily: isActive ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                  }}
+                >
                   {tab.label}
                 </Text>
               </TouchableOpacity>
             </Animated.View>
           );
         })}
-      </View>
+      </BlurView>
     </View>
   );
 }

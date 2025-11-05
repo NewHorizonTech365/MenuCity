@@ -12,7 +12,8 @@ export interface User {
   points: number; // points de fidélité
   avis: number; // nombre d'avis laissés
   cuisinesPreferees: string[];
-  historiqueVisites: VisiteRestaurant[];
+  dernierVisites: VisiteRestaurant[];
+  bio?: string;
 }
 
 export interface VisiteRestaurant {

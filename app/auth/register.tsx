@@ -1,129 +1,254 @@
-
-import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
-import { commonStyles, colors, buttonStyles } from '../../styles/commonStyles';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useAuth } from '../../providers/AuthProvider';
-import Icon from '../../components/Icon';
+// app/auth/register.tsx
+import React, { useState } from "react";
+import {
+  Text,
+  View,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { useAuth } from "../../providers/AuthProvider";
+import Icon from "../../components/Icon";
+import { useTheme } from "../../styles/theme";
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register } = useAuth();
-  const [nom, setNom] = useState('');
-  const [email, setEmail] = useState('');
-  const [telephone, setTelephone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { colors, spacing, radius, typography } = useTheme();
+
+  const [nom, setNom] = useState("");
+  const [email, setEmail] = useState("");
+  const [telephone, setTelephone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
     if (!nom || !email || !telephone || !password || !confirmPassword) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      Alert.alert("Erreur", "Veuillez remplir tous les champs");
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas');
+      Alert.alert("Erreur", "Les mots de passe ne correspondent pas");
       return;
     }
 
     setLoading(true);
-    try {
-      const success = await register(nom, email, password, telephone);
-      if (success) {
-        router.replace('/home');
-      } else {
-        Alert.alert('Erreur', 'Une erreur est survenue lors de l\'inscription');
-      }
-    } catch (error) {
-      console.log('Erreur d\'inscription:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
-    } finally {
-      setLoading(false);
+    const ok = await register(nom, email, password, telephone);
+    setLoading(false);
+
+    if (!ok) {
+      Alert.alert("Erreur", "Inscription impossible");
+      return;
     }
+
+    router.replace("/home");
   };
 
   return (
-    <SafeAreaView style={commonStyles.container}>
-      <ScrollView style={{ flex: 1, paddingHorizontal: 20 }}>
-        <TouchableOpacity
-          style={{ marginTop: 20, marginBottom: 40 }}
-          onPress={() => router.back()}
-        >
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          padding: spacing.lg,
+          paddingTop: spacing.xxl,
+        }}
+      >
+        {/* BACK */}
+        <TouchableOpacity onPress={() => router.back()}>
           <Icon name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
 
-        <View style={{ flex: 1, justifyContent: 'center' }}>
-          <Text style={[commonStyles.title, { textAlign: 'left', marginBottom: 10 }]}>
-            Créer un compte
-          </Text>
-          <Text style={[commonStyles.text, { textAlign: 'left', marginBottom: 40 }]}>
-            Rejoignez notre communauté de gourmets
-          </Text>
-
-          <TextInput
-            style={commonStyles.input}
-            placeholder="Nom complet"
-            value={nom}
-            onChangeText={setNom}
-            autoCapitalize="words"
-          />
-
-          <TextInput
-            style={commonStyles.input}
-            placeholder="Adresse e-mail"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          <TextInput
-            style={commonStyles.input}
-            placeholder="Numéro de téléphone"
-            value={telephone}
-            onChangeText={setTelephone}
-            keyboardType="phone-pad"
-          />
-
-          <TextInput
-            style={commonStyles.input}
-            placeholder="Mot de passe"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-
-          <TextInput
-            style={commonStyles.input}
-            placeholder="Confirmer le mot de passe"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-
-          <TouchableOpacity
-            style={[buttonStyles.primary, { marginTop: 20 }]}
-            onPress={handleRegister}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.backgroundAlt} />
-            ) : (
-              <Text style={buttonStyles.text}>S&apos;inscrire</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={{ marginTop: 20, alignItems: 'center', marginBottom: 40 }}
-            onPress={() => router.push('/auth/login')}
-          >
-            <Text style={[commonStyles.text, { color: colors.primary }]}>
-              Déjà un compte ? Connectez-vous
-            </Text>
-          </TouchableOpacity>
+        {/* LOGO */}
+        <View
+          style={{
+            width: 120,
+            height: 120,
+            borderRadius: 60,
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.border,
+            justifyContent: "center",
+            alignItems: "center",
+            alignSelf: "center",
+            marginTop: spacing.xl,
+            marginBottom: spacing.xl,
+          }}
+        >
+          <Icon name="restaurant" size={55} color={colors.primary} />
         </View>
+
+        <Text
+          style={{
+            fontFamily: typography.bold,
+            fontSize: 32,
+            color: colors.text,
+            marginBottom: 10,
+          }}
+        >
+          Créer un compte 🍽
+        </Text>
+        <Text
+          style={{
+            fontFamily: typography.regular,
+            fontSize: 16,
+            color: colors.textLight,
+            marginBottom: spacing.xl,
+          }}
+        >
+          Rejoignez notre communauté de gourmets.
+        </Text>
+
+        {/* INPUTS */}
+
+        {/** NAME */}
+        <TextInput
+          placeholder="Nom complet"
+          placeholderTextColor={colors.textLight}
+          style={{
+            height: 54,
+            backgroundColor: colors.card,
+            borderRadius: radius.pill,
+            paddingHorizontal: spacing.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            color: colors.text,
+            fontFamily: typography.regular,
+            marginBottom: spacing.md,
+          }}
+          value={nom}
+          onChangeText={setNom}
+          autoCapitalize="words"
+        />
+
+        {/** EMAIL */}
+        <TextInput
+          placeholder="Adresse e-mail"
+          placeholderTextColor={colors.textLight}
+          style={{
+            height: 54,
+            backgroundColor: colors.card,
+            borderRadius: radius.pill,
+            paddingHorizontal: spacing.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            color: colors.text,
+            fontFamily: typography.regular,
+            marginBottom: spacing.md,
+          }}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+
+        {/** PHONE */}
+        <TextInput
+          placeholder="Numéro de téléphone"
+          placeholderTextColor={colors.textLight}
+          style={{
+            height: 54,
+            backgroundColor: colors.card,
+            borderRadius: radius.pill,
+            paddingHorizontal: spacing.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            color: colors.text,
+            fontFamily: typography.regular,
+            marginBottom: spacing.md,
+          }}
+          value={telephone}
+          onChangeText={setTelephone}
+          keyboardType="phone-pad"
+        />
+
+        {/** PASSWORD */}
+        <TextInput
+          placeholder="Mot de passe"
+          placeholderTextColor={colors.textLight}
+          secureTextEntry
+          style={{
+            height: 54,
+            backgroundColor: colors.card,
+            borderRadius: radius.pill,
+            paddingHorizontal: spacing.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            color: colors.text,
+            fontFamily: typography.regular,
+            marginBottom: spacing.md,
+          }}
+          value={password}
+          onChangeText={setPassword}
+        />
+
+        <TextInput
+          placeholder="Confirmer le mot de passe"
+          placeholderTextColor={colors.textLight}
+          secureTextEntry
+          style={{
+            height: 54,
+            backgroundColor: colors.card,
+            borderRadius: radius.pill,
+            paddingHorizontal: spacing.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            color: colors.text,
+            fontFamily: typography.regular,
+            marginBottom: spacing.md,
+          }}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+        />
+
+        {/* BUTTON REGISTER */}
+        <TouchableOpacity
+          onPress={handleRegister}
+          disabled={loading}
+          style={{
+            backgroundColor: colors.primary,
+            height: 54,
+            borderRadius: radius.pill,
+            justifyContent: "center",
+            alignItems: "center",
+            marginTop: spacing.lg,
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text
+              style={{
+                color: "#fff",
+                fontFamily: typography.semiBold,
+                fontSize: 18,
+              }}
+            >
+              S'inscrire
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* LINK LOGIN */}
+        <TouchableOpacity
+          onPress={() => router.push("/auth/login")}
+          style={{ marginTop: spacing.lg, alignSelf: "center", marginBottom: spacing.xl }}
+        >
+          <Text
+            style={{
+              fontFamily: typography.regular,
+              color: colors.primary,
+              fontSize: 15,
+            }}
+          >
+            Déjà un compte ? Se connecter
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

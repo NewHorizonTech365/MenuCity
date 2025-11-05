@@ -1,235 +1,297 @@
+// components/RestaurantDetails.tsx
+import React from "react";
+import { View, Text, Image, ScrollView, TouchableOpacity, Dimensions } from "react-native";
+import { useRouter } from "expo-router";
+import Icon from "./Icon";
+import { Restaurant } from "../types/Restaurant";
+import { useTheme } from "../styles/theme";
 
-// RestaurantDetails
-// Écran affichant les informations détaillées d'un restaurant.
-// - Affiche photo, note, description, horaires, coordonnées, etc.
-// - Expose un bouton pour inviter un ami (callback onInvite)
-import React from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Restaurant } from '../types/Restaurant';
-import { colors, commonStyles, buttonStyles } from '../styles/commonStyles';
-import Icon from './Icon';
+const { width } = Dimensions.get("window");
 
-interface RestaurantDetailsProps {
+type MenuItem = {
+  id?: string;
+  nom: string;
+  prix: string;
+  description?: string;
+  image?: string; // ⇐ important: l'image du plat est dans chaque item du menu
+};
+
+interface Props {
   restaurant: Restaurant;
-  onClose: () => void;
   onInvite: () => void;
 }
 
-export default function RestaurantDetails({ restaurant, onClose, onInvite }: RestaurantDetailsProps) {
-  const renderStars = (rating: number) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
+export default function RestaurantDetails({ restaurant, onInvite }: Props) {
+  const router = useRouter();
+  const { colors, spacing, radius, typography } = useTheme();
 
-    for (let i = 0; i < fullStars; i++) {
-      stars.push(
-        <Icon key={i} name="star" size={20} color={colors.gold} />
-      );
-    }
+  const fallbackDishImg =
+    "https://images.unsplash.com/photo-1551218808-94e220e084d2?w=1200&auto=format&fit=crop&q=60";
 
-    if (hasHalfStar) {
-      stars.push(
-        <Icon key="half" name="star-half" size={20} color={colors.gold} />
-      );
-    }
-
-    const emptyStars = 5 - Math.ceil(rating);
-    for (let i = 0; i < emptyStars; i++) {
-      stars.push(
-        <Icon key={`empty-${i}`} name="star-outline" size={20} color={colors.grey} />
-      );
-    }
-
-    return stars;
-  };
+  const dishes: MenuItem[] = (restaurant.menu as unknown as MenuItem[]) || [];
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Icon name="close" size={24} color={colors.text} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* BACK */}
+      <View style={{ position: "absolute", top: 44, left: 16, zIndex: 50 }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Détails du Restaurant</Text>
-        <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Image source={{ uri: restaurant.image }} style={styles.image} />
-        
-        <View style={styles.info}>
-          <Text style={styles.name}>{restaurant.nom}</Text>
-          
-          <View style={styles.ratingContainer}>
-            <View style={styles.stars}>
-              {renderStars(restaurant.note)}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 140 }} // marge pour le CTA
+      >
+        {/* HERO */}
+        <Image
+          source={{ uri: restaurant.image }}
+          style={{
+            width,
+            height: 340,
+            borderBottomLeftRadius: 28,
+            borderBottomRightRadius: 28,
+          }}
+        />
+
+        {/* LOGO (si dispo) */}
+        <View style={{ alignItems: "center", marginTop: -50 }}>
+          {!!(restaurant as any).logo && (
+            <Image
+              source={{ uri: (restaurant as any).logo }}
+              style={{
+                width: 110,
+                height: 110,
+                borderRadius: 60,
+                borderWidth: 4,
+                borderColor: "#fff",
+                backgroundColor: "#fff",
+              }}
+            />
+          )}
+        </View>
+
+        {/* INFOS */}
+        <View style={{ padding: spacing.lg }}>
+          <Text style={{ fontFamily: typography.bold, fontSize: 30, color: colors.text, marginBottom: 6 }}>
+            {restaurant.nom}
+          </Text>
+
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+            <Icon name="star" size={18} color="#FFD452" />
+            <Text style={{ marginLeft: 6, fontFamily: typography.semiBold, color: colors.text }}>
+              {restaurant.note.toFixed(1)}
+            </Text>
+
+            <View
+              style={{
+                marginLeft: 12,
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                borderWidth: 1,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: radius.pill,
+              }}
+            >
+              <Text style={{ fontFamily: typography.semiBold, color: colors.textLight }}>
+                {restaurant.cuisine}
+              </Text>
             </View>
-            <Text style={styles.rating}>{restaurant.note}/5</Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Icon name="restaurant-outline" size={20} color={colors.primary} />
-            <Text style={styles.infoText}>{restaurant.cuisine}</Text>
+          <Text style={{ fontFamily: typography.regular, color: colors.textLight, lineHeight: 22, marginBottom: 24 }}>
+            {restaurant.description}
+          </Text>
+
+          {/* PHOTOS RESTO */}
+          {(restaurant as any).photos?.length ? (
+            <>
+              <Text style={{ fontFamily: typography.bold, color: colors.text, fontSize: 20, marginBottom: 12 }}>
+                Photos du restaurant
+              </Text>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
+                {(restaurant as any).photos.map((p: string, idx: number) => (
+                  <Image
+                    key={idx}
+                    source={{ uri: p }}
+                    style={{
+                      width: width * 0.7,
+                      height: 180,
+                      borderRadius: radius.lg,
+                      marginRight: spacing.md,
+                      backgroundColor: "#eee",
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
+
+          {/* MENU VISUEL (carrousel horizontal) */}
+          {!!dishes.length && (
+            <>
+              <Text style={{ fontFamily: typography.bold, fontSize: 20, color: colors.text, marginBottom: 12 }}>
+                Menu du restaurant
+              </Text>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
+                {dishes.map((dish, idx) => (
+                  <View
+                    key={dish.id ?? `${dish.nom}-${idx}`}
+                    style={{
+                      width: width * 0.55,
+                      backgroundColor: colors.card,
+                      borderRadius: radius.lg,
+                      overflow: "hidden",
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      marginRight: spacing.md,
+                    }}
+                  >
+                    <Image
+                      source={{ uri: dish.image || fallbackDishImg }}
+                      style={{ width: "100%", height: 120, backgroundColor: "#eee" }}
+                    />
+                    <View style={{ padding: spacing.md }}>
+                      <Text
+                        numberOfLines={1}
+                        style={{ fontFamily: typography.semiBold, color: colors.text, fontSize: 15 }}
+                      >
+                        {dish.nom}
+                      </Text>
+                      <Text style={{ fontFamily: typography.bold, color: colors.primary, marginTop: 6 }}>{dish.prix}</Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
+          {/* LOCALISATION (placeholder) */}
+          <Text style={{ fontFamily: typography.bold, fontSize: 20, color: colors.text, marginBottom: 12 }}>
+            Localisation
+          </Text>
+
+          <View
+            style={{
+              borderRadius: radius.lg,
+              overflow: "hidden",
+              borderWidth: 1,
+              borderColor: colors.border,
+              marginBottom: 16,
+            }}
+          >
+            <Image
+              source={{
+                uri: "https://images.unsplash.com/photo-1502920917128-1aa500764ce7?q=80&w=1600&auto=format&fit=crop",
+              }}
+              style={{ width: "100%", height: 180 }}
+            />
           </View>
 
-          <View style={styles.infoRow}>
-            <Icon name="location-outline" size={20} color={colors.primary} />
-            <Text style={styles.infoText}>{restaurant.adresse}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Icon name="call-outline" size={20} color={colors.primary} />
-            <Text style={styles.infoText}>{restaurant.telephone}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Icon name="time-outline" size={20} color={colors.primary} />
-            <Text style={styles.infoText}>{restaurant.horaires}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Icon name="card-outline" size={20} color={colors.primary} />
-            <Text style={styles.infoText}>Prix moyen: {restaurant.prixMoyen}</Text>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.description}>{restaurant.description}</Text>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Spécialités</Text>
-            <View style={styles.specialitiesContainer}>
-              {restaurant.specialites.map((specialite, index) => (
-                <View key={index} style={styles.specialityTag}>
-                  <Text style={styles.specialityText}>{specialite}</Text>
-                </View>
-              ))}
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: colors.border,
+              padding: spacing.md,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+              <Icon name="location" size={18} color={colors.textLight} />
+              <Text
+                style={{
+                  marginLeft: 8,
+                  fontFamily: typography.regular,
+                  color: colors.textLight,
+                  flex: 1,
+                }}
+                numberOfLines={2}
+              >
+                {restaurant.adresse}
+              </Text>
             </View>
+
+            <TouchableOpacity
+              onPress={() => {}}
+              style={{
+                marginLeft: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: radius.pill,
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ fontFamily: typography.semiBold, color: colors.primary }}>Voir l’itinéraire</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+            <Icon name="call" size={18} color={colors.textLight} />
+            <Text style={{ marginLeft: 8, fontFamily: typography.regular, color: colors.textLight }}>
+              {restaurant.telephone}
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+            <Icon name="time" size={18} color={colors.textLight} />
+            <Text style={{ marginLeft: 8, fontFamily: typography.regular, color: colors.textLight }}>
+              {restaurant.horaires}
+            </Text>
           </View>
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.inviteButton} onPress={onInvite}>
-          <Icon name="person-add" size={24} color={colors.textWhite} />
-          <Text style={styles.inviteButtonText}>Inviter un ami</Text>
+      {/* INVITER */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: spacing.lg,
+          backgroundColor: colors.background,
+          borderTopWidth: 1,
+          borderColor: colors.border,
+        }}
+      >
+        <TouchableOpacity
+          onPress={onInvite} // ouvre bien le sheet parent
+          style={{
+            backgroundColor: colors.primary,
+            borderRadius: radius.pill,
+            paddingVertical: 16,
+            alignItems: "center",
+            flexDirection: "row",
+            justifyContent: "center",
+          }}
+          activeOpacity={0.9}
+        >
+          <Icon name="person-add" size={20} color="#fff" />
+          <Text style={{ marginLeft: 10, color: "#fff", fontFamily: typography.semiBold, fontSize: 16 }}>
+            Inviter un ami
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: colors.backgroundAlt,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  content: {
-    flex: 1,
-  },
-  image: {
-    width: '100%',
-    height: 250,
-  },
-  info: {
-    padding: 20,
-  },
-  name: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  stars: {
-    flexDirection: 'row',
-    marginRight: 8,
-  },
-  rating: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  infoText: {
-    fontSize: 16,
-    color: colors.textLight,
-    marginLeft: 12,
-    flex: 1,
-  },
-  section: {
-    marginTop: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 16,
-    color: colors.textLight,
-    lineHeight: 24,
-  },
-  specialitiesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  specialityTag: {
-    backgroundColor: colors.primary,
-    borderRadius: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  specialityText: {
-    fontSize: 14,
-    color: colors.textWhite,
-    fontWeight: '600',
-  },
-  footer: {
-    padding: 20,
-    backgroundColor: colors.backgroundAlt,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  inviteButton: {
-    ...buttonStyles.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-  },
-  inviteButtonText: {
-    ...buttonStyles.text,
-    marginLeft: 8,
-    fontSize: 18,
-  },
-});

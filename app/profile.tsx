@@ -1,309 +1,178 @@
-
-// Profile screen: affiche les informations utilisateur et permet modification
-// - Permet de changer l'image de profil / couverture via l'image picker
-// - Utilise AuthProvider pour obtenir et mettre à jour l'utilisateur
-import React, { useState, useEffect } from 'react';
-import { Text, View, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { commonStyles, colors, buttonStyles } from '../styles/commonStyles';
-import { useAuth } from '../providers/AuthProvider';
-import BottomNavigation from '../components/BottomNavigation';
-import ProfileEditSheet from '../components/ProfileEditSheet';
-import SimpleBottomSheet from '../components/BottomSheet';
-import Icon from '../components/Icon';
+// profile.tsx (NOUVELLE VERSION MODERNE)
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "../styles/theme";
+import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "../providers/AuthProvider";
+import BottomNavigation from "../components/BottomNavigation";
+import ProfileEditSheet from "../components/ProfileEditSheet";
+import SimpleBottomSheet from "../components/BottomSheet";
+import Icon from "../components/Icon";
 
 export default function ProfileScreen() {
   const { user, isAuthenticated, logout, updateUser } = useAuth();
   const router = useRouter();
+  const { colors, spacing, radius, typography } = useTheme();
   const [isEditSheetVisible, setIsEditSheetVisible] = useState(false);
 
-  useEffect(() => {
-    console.log('ProfileScreen - isAuthenticated:', isAuthenticated, 'user:', user);
-  }, [isAuthenticated, user]);
-
-  const handleImagePicker = async (type: 'profile' | 'cover') => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: type === 'profile' ? [1, 1] : [16, 9],
-        quality: 0.8,
+  const pickImage = async (type: "profile" | "cover") => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: type === "profile" ? [1, 1] : [16, 9],
+      quality: 0.8,
+    });
+    if (!res.canceled && res.assets[0]) {
+      updateUser({
+        ...(type === "profile"
+          ? { photoProfil: res.assets[0].uri }
+          : { photoCouverture: res.assets[0].uri }),
       });
-
-      if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
-        if (type === 'profile') {
-          updateUser({ profileImage: imageUri });
-        } else {
-          updateUser({ coverImage: imageUri });
-        }
-      }
-    } catch (error) {
-      console.error('Erreur lors de la sélection d\'image:', error);
-      Alert.alert('Erreur', 'Impossible de sélectionner l\'image');
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Déconnexion',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Déconnexion', style: 'destructive', onPress: logout },
-      ]
-    );
-  };
-
-  const handleLogin = () => {
-    router.push('/auth/login');
-  };
-
-  // Afficher une page invitant à se connecter si l'utilisateur n'est pas
-  // authentifié. Le BottomNavigation reste visible pour garder la cohérence.
   if (!isAuthenticated || !user) {
     return (
-      <SafeAreaView style={commonStyles.container}>
-        <View style={[commonStyles.content, { justifyContent: 'center' }]}>
-          <LinearGradient
-            colors={[colors.primary, colors.accent]}
-            style={[commonStyles.gradientHeader, { width: '100%', alignItems: 'center' }]}
-          >
-            <Icon name="person-circle-outline" size={80} color={colors.textWhite} />
-            <Text style={[commonStyles.title, { color: colors.textWhite, marginTop: 20 }]}>
-              Connexion requise
-            </Text>
-            <Text style={[commonStyles.text, { color: colors.textWhite, marginBottom: 0 }]}>
-              Connectez-vous pour accéder à votre profil
-            </Text>
-          </LinearGradient>
-
-          <View style={commonStyles.buttonContainer}>
-            <TouchableOpacity style={buttonStyles.primary} onPress={handleLogin}>
-              <Text style={buttonStyles.text}>Se connecter</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
+        <Icon name="person-circle-outline" size={80} color={colors.primary} />
+        <Text style={{ color: colors.text, fontSize: 20, fontFamily: typography.bold, marginTop: 20 }}>
+          Connexion requise
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.push("/auth/login")}
+          style={{
+            marginTop: 20,
+            backgroundColor: colors.primary,
+            paddingVertical: 14,
+            paddingHorizontal: 30,
+            borderRadius: radius.pill,
+          }}
+        >
+          <Text style={{ color: "#fff", fontFamily: typography.semiBold, fontSize: 16 }}>Se connecter</Text>
+        </TouchableOpacity>
         <BottomNavigation currentRoute="profile" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={commonStyles.container}>
-      <ScrollView 
-        style={{ flex: 1 }} 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
-  {/* Cover Image */}
-  {/* Zone de couverture avec option de changer l'image */}
-        <View style={{ position: 'relative', height: 200 }}>
-          <LinearGradient
-            colors={[colors.primary, colors.accent, colors.gold]}
-            style={{ 
-              flex: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            {user.coverImage ? (
-              <Image 
-                source={{ uri: user.coverImage }} 
-                style={{ width: '100%', height: '100%', position: 'absolute' }}
-              />
-            ) : (
-              <View style={{ alignItems: 'center' }}>
-                <Icon name="image-outline" size={40} color={colors.textWhite} />
-                <Text style={[commonStyles.text, { color: colors.textWhite, marginTop: 10 }]}>
-                  Photo de couverture
-                </Text>
-              </View>
-            )}
-          </LinearGradient>
-          
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
+
+        {/* COVER */}
+        <View style={{ height: 200, width: "100%", position: "relative" }}>
+          {user.photoCouverture ? (
+            <Image source={{ uri: user.photoCouverture }} style={{ width: "100%", height: "100%" }} />
+          ) : (
+            <View style={{ width: "100%", height: "100%", backgroundColor: colors.card, justifyContent: "center", alignItems: "center" }}>
+              <Icon name="image-outline" size={40} color={colors.textLight} />
+            </View>
+          )}
+
           <TouchableOpacity
             style={{
-              position: 'absolute',
-              top: 20,
-              right: 20,
-              backgroundColor: colors.backgroundAlt,
-              borderRadius: 20,
+              position: "absolute",
+              top: 22,
+              right: 18,
+              backgroundColor: "rgba(0,0,0,0.5)",
               padding: 8,
-              boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.2)',
-              elevation: 4,
+              borderRadius: 20,
             }}
-            onPress={() => handleImagePicker('cover')}
+            onPress={() => pickImage("cover")}
           >
-            <Icon name="camera" size={20} color={colors.primary} />
+            <Icon name="camera" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
 
-  {/* Profile Section */}
-  {/* Contient l'avatar, le nom et une courte description */}
-        <View style={{ paddingHorizontal: 20, marginTop: -50, alignItems: 'center' }}>
-          <View style={{ position: 'relative', marginBottom: 20 }}>
-            <View style={{
-              width: 100,
-              height: 100,
-              borderRadius: 50,
-              backgroundColor: colors.backgroundAlt,
-              borderWidth: 4,
-              borderColor: colors.backgroundAlt,
-              overflow: 'hidden',
-              boxShadow: '0px 4px 15px rgba(0, 0, 0, 0.2)',
-              elevation: 6,
-            }}>
-              {user.profileImage ? (
-                <Image 
-                  source={{ uri: user.profileImage }} 
-                  style={{ width: '100%', height: '100%' }}
-                />
+        {/* PROFILE BLOCK */}
+        <View style={{ alignItems: "center", marginTop: -50 }}>
+          <TouchableOpacity onPress={() => pickImage("profile")}>
+            <View
+              style={{
+                width: 110,
+                height: 110,
+                borderRadius: 60,
+                borderWidth: 4,
+                borderColor: colors.background,
+                overflow: "hidden",
+                backgroundColor: colors.primary,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              {user.photoProfil ? (
+                <Image source={{ uri: user.photoProfil }} style={{ width: "100%", height: "100%" }} />
               ) : (
-                <View style={{ 
-                  flex: 1, 
-                  backgroundColor: colors.primary, 
-                  justifyContent: 'center', 
-                  alignItems: 'center' 
-                }}>
-                  <Text style={{ 
-                    fontSize: 36, 
-                    fontWeight: '700', 
-                    color: colors.textWhite 
-                  }}>
-                    {user.nom.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                <Text style={{ color: "#fff", fontSize: 38, fontFamily: typography.bold }}>
+                  {user.nom.charAt(0)}
+                </Text>
               )}
             </View>
-            
-            <TouchableOpacity
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                right: 0,
-                backgroundColor: colors.primary,
-                borderRadius: 15,
-                padding: 6,
-                borderWidth: 2,
-                borderColor: colors.backgroundAlt,
-              }}
-              onPress={() => handleImagePicker('profile')}
-            >
-              <Icon name="camera" size={16} color={colors.textWhite} />
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
 
-          <Text style={[commonStyles.title, { marginBottom: 5 }]}>
-            {user.nom}
-          </Text>
-          <Text style={[commonStyles.text, { marginBottom: 20 }]}>
-            Passionné de gastronomie congolaise et exploratrice culinaire de Lubumbashi
+          <Text style={{ marginTop: 12, color: colors.text, fontFamily: typography.bold, fontSize: 26 }}>{user.nom}</Text>
+
+          <Text style={{ marginTop: 4, color: colors.textLight, fontFamily: typography.regular, textAlign: "center", paddingHorizontal: 20 }}>
+            {user.bio || "Aucune bio pour le moment"}
           </Text>
         </View>
 
-  {/* User Info Cards */}
-  {/* Cartes affichant email, téléphone, ville etc. */}
-        <View style={{ paddingHorizontal: 20 }}>
-          <View style={[commonStyles.card, { marginBottom: 16 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-              <Icon name="mail" size={20} color={colors.primary} />
-              <Text style={[commonStyles.subtitle, { marginLeft: 12, marginBottom: 0 }]}>
-                Email
-              </Text>
+        {/* COMPONENTS INFOS (email / tel / ville) */}
+        <View style={{ marginTop: 30, paddingHorizontal: spacing.lg }}>
+          {[
+            { icon: "mail", label: "Email", value: user.email },
+            { icon: "call", label: "Téléphone", value: user.telephone },
+            { icon: "location", label: "Ville", value: "Lubumbashi - RDC" },
+          ].map((item, i) => (
+            <View key={i} style={{ marginBottom: 18 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
+                <Icon name={item.icon} size={20} color={colors.primary} />
+                <Text style={{ color: colors.text, fontFamily: typography.semiBold, marginLeft: 10 }}>
+                  {item.label}
+                </Text>
+              </View>
+              <Text style={{ marginLeft: 30, color: colors.textLight }}>{item.value}</Text>
             </View>
-            <Text style={[commonStyles.text, { marginBottom: 0, marginLeft: 32 }]}>
-              {user.email}
-            </Text>
-          </View>
-
-          <View style={[commonStyles.card, { marginBottom: 16 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-              <Icon name="call" size={20} color={colors.primary} />
-              <Text style={[commonStyles.subtitle, { marginLeft: 12, marginBottom: 0 }]}>
-                Téléphone
-              </Text>
-            </View>
-            <Text style={[commonStyles.text, { marginBottom: 0, marginLeft: 32 }]}>
-              {user.telephone}
-            </Text>
-          </View>
-
-          <View style={[commonStyles.card, { marginBottom: 16 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-              <Icon name="location" size={20} color={colors.primary} />
-              <Text style={[commonStyles.subtitle, { marginLeft: 12, marginBottom: 0 }]}>
-                Ville
-              </Text>
-            </View>
-            <Text style={[commonStyles.text, { marginBottom: 0, marginLeft: 32 }]}>
-              Lubumbashi, République Démocratique du Congo
-            </Text>
-          </View>
+          ))}
         </View>
 
-  {/* Action Buttons */}
-  {/* Modifier le profil ou se déconnecter */}
-        <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
+        {/* BUTTONS */}
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: 30 }}>
           <TouchableOpacity
-            style={[buttonStyles.primary, { marginBottom: 12 }]}
+            style={{
+              backgroundColor: colors.primary,
+              paddingVertical: 14,
+              borderRadius: radius.pill,
+              alignItems: "center",
+              marginBottom: 10,
+            }}
             onPress={() => setIsEditSheetVisible(true)}
           >
-            <Text style={buttonStyles.text}>Modifier le profil</Text>
+            <Text style={{ color: "#fff", fontFamily: typography.semiBold, fontSize: 16 }}>Modifier le profil</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[buttonStyles.secondary, { marginBottom: 12 }]}
-            onPress={handleLogout}
+            style={{
+              borderColor: colors.primary,
+              borderWidth: 2,
+              paddingVertical: 14,
+              borderRadius: radius.pill,
+              alignItems: "center",
+            }}
+            onPress={logout}
           >
-            <Text style={buttonStyles.textSecondary}>Se déconnecter</Text>
+            <Text style={{ color: colors.primary, fontFamily: typography.semiBold, fontSize: 16 }}>Se déconnecter</Text>
           </TouchableOpacity>
         </View>
 
-  {/* African Cultural Section */}
-  {/* Section décorative avec un message culturel */}
-        <View style={{ paddingHorizontal: 20, marginTop: 30 }}>
-          <View style={[
-            commonStyles.africanPattern,
-            {
-              borderRadius: 20,
-              padding: 20,
-            }
-          ]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-              <Icon name="globe" size={24} color={colors.textWhite} />
-              <Text style={[
-                commonStyles.subtitle, 
-                { color: colors.textWhite, marginLeft: 10, marginBottom: 0 }
-              ]}>
-                Votre Voyage Culinaire
-              </Text>
-            </View>
-            <Text style={[
-              commonStyles.text, 
-              { color: colors.textWhite, marginBottom: 0, textAlign: 'left' }
-            ]}>
-              Explorez les saveurs authentiques de l'Afrique centrale et partagez vos découvertes 
-              culinaires avec vos amis et votre famille.
-            </Text>
-          </View>
-        </View>
       </ScrollView>
 
       <BottomNavigation currentRoute="profile" />
 
-      <SimpleBottomSheet
-        isVisible={isEditSheetVisible}
-        onClose={() => setIsEditSheetVisible(false)}
-      >
-        <ProfileEditSheet
-          user={user}
-          onUpdate={updateUser}
-          onClose={() => setIsEditSheetVisible(false)}
-        />
+      {/* EDIT SHEET */}
+      <SimpleBottomSheet isVisible={isEditSheetVisible} onClose={() => setIsEditSheetVisible(false)}>
+        <ProfileEditSheet user={user} onUpdate={updateUser} onClose={() => setIsEditSheetVisible(false)} />
       </SimpleBottomSheet>
     </SafeAreaView>
   );
