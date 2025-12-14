@@ -1,9 +1,6 @@
-
-// AuthProvider
-// Fournit un contexte React pour l'authentification afin que n'importe quel
-// composant puisse accéder à l'utilisateur courant et aux fonctions login/logout.
-// L'implémentation concrète est fournie par le hook `useAuth` (hooks/useAuth.ts).
-import React, { createContext, useContext, ReactNode } from 'react';
+// AuthProvider.tsx — version avec ROLE + PIN admin
+import React, { createContext, useContext, ReactNode, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth as useAuthHook } from '../hooks/useAuth';
 import { AuthState, User } from '../types/User';
 
@@ -12,9 +9,14 @@ interface AuthContextType extends AuthState {
   register: (nom: string, email: string, password: string, telephone: string) => Promise<boolean>;
   logout: () => void;
   updateUser: (updatedUser: Partial<User>) => void;
+
+  // ➜ NOUVEAU : connexion admin
+  loginAdmin: (pin: string) => Promise<boolean>;
 }
 
-// Context initial (undefined tant que non fourni)
+// Storage keys
+const ADMIN_ROLE_KEY = 'APP_ADMIN_ROLE';
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
@@ -22,27 +24,72 @@ interface AuthProviderProps {
 }
 
 export default function AuthProvider({ children }: AuthProviderProps) {
-  // Récupère l'implémentation d'auth via le hook local (mock)
   const auth = useAuthHook();
 
-  // Petit log utile en dev pour voir l'état d'auth à l'initialisation
-  console.log('AuthProvider - Current auth state:', {
-    isAuthenticated: auth.isAuthenticated,
-    user: auth.user ? { id: auth.user.id, nom: auth.user.nom } : null
-  });
+  // ---------- PERSISTENCE DU ROLE ADMIN ----------
+  useEffect(() => {
+    (async () => {
+      const storedRole = await AsyncStorage.getItem(ADMIN_ROLE_KEY);
+
+      if (storedRole === 'admin') {
+        // On force l'utilisateur courant à être admin
+        auth.updateUser({ role: 'admin' } as any);
+      }
+    })();
+  }, []);
+
+  // ---------- NOUVEAU : LOGIN ADMIN AVEC PIN ----------
+  const loginAdmin = async (pin: string): Promise<boolean> => {
+    const ADMIN_PIN = "1234"; // <-- change ici le PIN admin
+
+    if (pin === ADMIN_PIN) {
+      await AsyncStorage.setItem(ADMIN_ROLE_KEY, 'admin');
+
+      auth.updateUser({
+        role: "admin",
+      } as any);
+
+      return true;
+    }
+
+    return false;
+  };
+
+  // ---------- LOGOUT : doit aussi retirer le rôle ----------
+  const logout = () => {
+    AsyncStorage.removeItem(ADMIN_ROLE_KEY);
+    auth.logout();
+  };
+
+  // ---------- updateUser (ajoute propagation du rôle) ----------
+  const updateUser = (updated: Partial<User>) => {
+    auth.updateUser(updated);
+
+    // si le rôle change → met à jour le storage
+    if (updated.role === 'admin') {
+      AsyncStorage.setItem(ADMIN_ROLE_KEY, 'admin');
+    }
+    if (updated.role === 'user') {
+      AsyncStorage.removeItem(ADMIN_ROLE_KEY);
+    }
+  };
 
   return (
-    <AuthContext.Provider value={auth}>
+    <AuthContext.Provider
+      value={{
+        ...auth,
+        loginAdmin,
+        logout,
+        updateUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-// Hook helper pour consommer le contexte plus facilement
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
 };

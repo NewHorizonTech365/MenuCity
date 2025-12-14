@@ -28,7 +28,7 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!nom || !email || !telephone || !password || !confirmPassword) {
+    if (!nom.trim() || !email.trim() || !telephone.trim() || !password || !confirmPassword) {
       Alert.alert("Erreur", "Veuillez remplir tous les champs");
       return;
     }
@@ -39,15 +39,21 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
-    const ok = await register(nom, email, password, telephone);
-    setLoading(false);
+    try {
+      const ok = await register(nom.trim(), email.trim(), password, telephone.trim());
+      setLoading(false);
 
-    if (!ok) {
-      Alert.alert("Erreur", "Inscription impossible");
-      return;
+      if (!ok) {
+        Alert.alert("Erreur", "Inscription impossible");
+        return;
+      }
+
+      router.replace("/home");
+    } catch (e) {
+      setLoading(false);
+      console.error("Register error", e);
+      Alert.alert("Erreur", "Une erreur est survenue");
     }
-
-    router.replace("/home");
   };
 
   return (
@@ -105,8 +111,6 @@ export default function RegisterScreen() {
         </Text>
 
         {/* INPUTS */}
-
-        {/** NAME */}
         <TextInput
           placeholder="Nom complet"
           placeholderTextColor={colors.textLight}
@@ -126,7 +130,6 @@ export default function RegisterScreen() {
           autoCapitalize="words"
         />
 
-        {/** EMAIL */}
         <TextInput
           placeholder="Adresse e-mail"
           placeholderTextColor={colors.textLight}
@@ -147,7 +150,6 @@ export default function RegisterScreen() {
           keyboardType="email-address"
         />
 
-        {/** PHONE */}
         <TextInput
           placeholder="Numéro de téléphone"
           placeholderTextColor={colors.textLight}
@@ -167,7 +169,6 @@ export default function RegisterScreen() {
           keyboardType="phone-pad"
         />
 
-        {/** PASSWORD */}
         <TextInput
           placeholder="Mot de passe"
           placeholderTextColor={colors.textLight}

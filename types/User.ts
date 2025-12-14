@@ -6,6 +6,7 @@ export interface User {
   nom: string;
   email: string;
   telephone: string;
+  role: 'user' | 'admin';
   photoProfil?: string; // URL image profil
   photoCouverture?: string; // URL image couverture
   restaurants: number; // nombre de restaurants visités

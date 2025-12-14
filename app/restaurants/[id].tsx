@@ -1,29 +1,55 @@
-// app/restaurant/[id].tsx
+// app/restaurant/[id].tsx — Page détails restaurant (données centralisées)
+
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { View, Text, TouchableOpacity, Modal } from "react-native";
-import { restaurantsLubumbashi } from "../../data/restaurants";
+import { useData } from "../../providers/DataProvider";
 import RestaurantDetails from "../../components/RestaurantDetails";
 import InviteFriendSheet from "../../components/InviteFriendSheet";
-import { colors } from "../../styles/commonStyles";
+import { useTheme } from "../../styles/theme";
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { restaurants } = useData();            // ⬅️ DONNÉES CENTRALISÉES
+  const { colors } = useTheme();               // ⬅️ thème modernisé
 
-  const restaurant = restaurantsLubumbashi.find(r => r.id === id);
-
+  const restaurant = restaurants.find((r) => r.id === id);
   const [showInvite, setShowInvite] = useState(false);
 
+  // Si l'ID n'existe pas
   if (!restaurant) {
     return (
-      <View style={{ flex:1, alignItems:"center", justifyContent:"center" }}>
-        <Text style={{color: colors.text}}>Restaurant introuvable</Text>
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 20,
+          backgroundColor: colors.background,
+        }}
+      >
+        <Text
+          style={{
+            color: colors.text,
+            fontSize: 18,
+            marginBottom: 20,
+            textAlign: "center",
+          }}
+        >
+          Restaurant introuvable
+        </Text>
+
         <TouchableOpacity
           onPress={() => router.back()}
-          style={{marginTop:15, padding:12, backgroundColor:colors.primary, borderRadius:25}}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 20,
+            backgroundColor: colors.primary,
+            borderRadius: 25,
+          }}
         >
-          <Text style={{color:"#fff"}}>Retour</Text>
+          <Text style={{ color: "#fff", fontSize: 16 }}>Retour</Text>
         </TouchableOpacity>
       </View>
     );
@@ -31,14 +57,13 @@ export default function RestaurantScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-
-      {/* DETAILS */}
+      {/* DETAILS DU RESTAURANT */}
       <RestaurantDetails
         restaurant={restaurant}
         onInvite={() => setShowInvite(true)}
       />
 
-      {/* INVITER UN AMI SHEET */}
+      {/* MODAL INVITATION */}
       <Modal
         visible={showInvite}
         animationType="slide"
@@ -48,13 +73,12 @@ export default function RestaurantScreen() {
         <InviteFriendSheet
           restaurant={restaurant}
           onClose={() => setShowInvite(false)}
-          onSendInvitation={(data:any)=>{
-            console.log("Invitation envoyée:", data)
-            setShowInvite(false)
+          onSendInvitation={(data: any) => {
+            console.log("Invitation envoyée:", data);
+            setShowInvite(false);
           }}
         />
       </Modal>
-
     </View>
   );
 }

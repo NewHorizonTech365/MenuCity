@@ -1,33 +1,38 @@
 // app/home.tsx — Home "Discovery" avec filtres + scroll vertical
+
 import React, { useMemo, useState } from 'react';
-import { View, Text, TextInput, Image, TouchableOpacity, FlatList, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  Image,
+  TouchableOpacity,
+  FlatList,
+  ScrollView
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+
 import { useAuth } from '../providers/AuthProvider';
+import { useData } from '../providers/DataProvider';
 import { useTheme } from '../styles/theme';
+
 import BottomNavigation from '../components/BottomNavigation';
 import Icon from '../components/Icon';
 
-type Restaurant = {
-  id: string;
-  nom: string;
-  image: string;
-  rating: number;
-  category: string;      // ex: 'Africain', 'Grillades', 'Fast-food'
-  distanceKm?: number;
-  price?: string;
-  timeMin?: number;
-};
+import type { Restaurant } from '../types/Restaurant';
 
-// normalise pour comparer "fast" vs "Fast-food" etc.
+// Normalisation des catégories
 const norm = (s: string) => s.toLowerCase().replace(/\s|-/g, '');
+
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { restaurants } = useData();       // ⬅️ RÉCUPÉRATION DES DONNÉES CENTRALISÉES
   const { colors, spacing, radius, typography } = useTheme();
 
-  // ----- Etat du filtre catégorie
+  // ----- Filtre catégorie -----
   const [selectedCatKey, setSelectedCatKey] = useState<string>('all');
 
   const categories = useMemo(
@@ -42,111 +47,83 @@ export default function HomeScreen() {
     []
   );
 
-  const popular: Restaurant[] = useMemo(
-    () => [
-      {
-        id: '1',
-        nom: 'Chez Mama Koko',
-        image: 'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=1200&auto=format&fit=crop',
-        rating: 4.8,
-        category: 'Africain',
-        timeMin: 20,
-        price: '$$',
-      },
-      {
-        id: '2',
-        nom: 'Le Grill du Marché',
-        image: 'https://images.unsplash.com/photo-1555243896-c709bfa0b564?q=80&w=1200&auto=format&fit=crop',
-        rating: 4.6,
-        category: 'Grillades',
-        timeMin: 25,
-        price: '$$',
-      },
-      {
-        id: '3',
-        nom: 'Savanna Fish',
-        image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?q=80&w=1200&auto=format&fit=crop',
-        rating: 4.7,
-        category: 'Poisson',
-        timeMin: 18,
-        price: '$$',
-      },
-    ],
-    []
-  );
+  // ----- Simulation de sections basées sur les restaurants -----
 
-  const nearYou: Restaurant[] = useMemo(
-    () => [
-      {
-        id: '4',
-        nom: 'Basilic & Tomate',
-        image: 'https://images.unsplash.com/photo-1604908554007-09f9105a9472?q=80&w=1200&auto=format&fit=crop',
-        rating: 4.4,
-        category: 'Italien',
-        distanceKm: 1.2,
-        price: '$$',
-      },
-      {
-        id: '5',
-        nom: 'Street Burger',
-        image: 'https://images.unsplash.com/photo-1551782450-17144c3a09e8?q=80&w=1200&auto=format&fit=crop',
-        rating: 4.3,
-        category: 'Fast-food',
-        distanceKm: 0.8,
-        price: '$',
-      },
-      {
-        id: '6',
-        nom: 'Sucré-Salé',
-        image: 'https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?q=80&w=1200&auto=format&fit=crop',
-        rating: 4.5,
-        category: 'Desserts',
-        distanceKm: 1.7,
-        price: '$$',
-      },
-    ],
-    []
-  );
+  const popular = useMemo(() => {
+    return restaurants.slice(0, 5).map((r) => ({
+      id: r.id,
+      nom: r.nom,
+      image: r.image,
+      rating: r.note ?? 4.5,
+      category: r.cuisine,
+      timeMin: 20,
+      price: r.prixMoyen || "$$",
+    }));
+  }, [restaurants]);
 
-  // ----- Filtrage selon la catégorie sélectionnée
+
+  const nearYou = useMemo(() => {
+    return restaurants.slice(5, 10).map((r) => ({
+      id: r.id,
+      nom: r.nom,
+      image: r.image,
+      rating: r.note ?? 4.3,
+      category: r.cuisine,
+      distanceKm: 1 + Math.random() * 3,
+      price: r.prixMoyen || "$$",
+    }));
+  }, [restaurants]);
+
+  // ----- Filtrage selon catégorie -----
   const matchCat = (itemCat: string, key: string) => {
     if (key === 'all') return true;
-    const mapKeyToLabel = {
-      africain: 'Africain',
-      fastfood: 'Fast-food',
-      poisson: 'Poisson',
-      grillades: 'Grillades',
-      desserts: 'Desserts',
-    } as Record<string, string>;
-    const wanted = mapKeyToLabel[key] ?? key;
-    return norm(itemCat) === norm(wanted);
+    return norm(itemCat) === norm(key);
   };
 
-  const filteredPopular = useMemo(
-    () => popular.filter((r) => matchCat(r.category, selectedCatKey)),
-    [popular, selectedCatKey]
-  );
-  const filteredNearYou = useMemo(
-    () => nearYou.filter((r) => matchCat(r.category, selectedCatKey)),
-    [nearYou, selectedCatKey]
+  const filteredPopular = popular.filter((r) =>
+    matchCat(r.category, selectedCatKey)
   );
 
-  const goToRestaurants = () => router.push('/restaurants' as any);
-  const goToProfile = () => router.push('/profile' as any);
-  const openRestaurant = (id: string) => router.push('/restaurants' as any); // placeholder
+  const filteredNearYou = nearYou.filter((r) =>
+    matchCat(r.category, selectedCatKey)
+  );
+
+  // Navigation
+  const openRestaurant = (id: string) =>
+    router.push(`/restaurants/${id}`);
 
   const SectionHeader = ({ title, action }: { title: string; action?: () => void }) => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
-      <Text style={{ fontFamily: typography.bold, fontSize: 20, color: colors.text }}>{title}</Text>
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: spacing.lg,
+        marginTop: spacing.lg
+      }}
+    >
+      <Text style={{ fontFamily: typography.bold, fontSize: 20, color: colors.text }}>
+        {title}
+      </Text>
+
       {action && (
-        <TouchableOpacity onPress={action} style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.sm }}>
-          <Text style={{ fontFamily: typography.semiBold, color: colors.primary }}>Tout voir</Text>
+        <TouchableOpacity onPress={action}>
+          <Text style={{ fontFamily: typography.semiBold, color: colors.primary }}>
+            Tout voir
+          </Text>
         </TouchableOpacity>
       )}
     </View>
   );
 
-  const Chip = ({ label, active, onPress }: { label: string; active?: boolean; onPress?: () => void }) => (
+  const Chip = ({
+    label,
+    active,
+    onPress
+  }: {
+    label: string;
+    active?: boolean;
+    onPress?: () => void;
+  }) => (
     <TouchableOpacity
       onPress={onPress}
       style={{
@@ -156,15 +133,14 @@ export default function HomeScreen() {
         borderWidth: 1,
         borderColor: active ? colors.primary : colors.border,
         backgroundColor: active ? colors.card : 'rgba(255,255,255,0.6)',
-        marginRight: 8,
+        marginRight: 8
       }}
-      activeOpacity={0.8}
     >
       <Text
         style={{
           fontFamily: active ? typography.semiBold : typography.regular,
           color: active ? colors.text : colors.textLight,
-          fontSize: 13,
+          fontSize: 13
         }}
       >
         {label}
@@ -172,7 +148,7 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  const RestaurantCard = ({ item }: { item: Restaurant }) => (
+  const RestaurantCard = ({ item }: { item: any }) => (
     <TouchableOpacity
       onPress={() => openRestaurant(item.id)}
       style={{
@@ -182,13 +158,17 @@ export default function HomeScreen() {
         backgroundColor: colors.card,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.border
       }}
-      activeOpacity={0.9}
     >
       <View style={{ height: 150, backgroundColor: '#eee' }}>
-        <Image source={{ uri: item.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-        {/* badge rating */}
+        <Image
+          source={{ uri: item.image }}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+
+        {/* rating */}
         <View
           style={{
             position: 'absolute',
@@ -199,16 +179,23 @@ export default function HomeScreen() {
             paddingVertical: 4,
             borderRadius: radius.pill,
             flexDirection: 'row',
-            alignItems: 'center',
+            alignItems: 'center'
           }}
         >
           <Icon name="star" size={14} color="#FFD452" />
-          <Text style={{ color: '#fff', marginLeft: 6, fontFamily: typography.semiBold, fontSize: 12 }}>
-            {item.rating.toFixed(1)}
+          <Text
+            style={{
+              color: '#fff',
+              marginLeft: 6,
+              fontFamily: typography.semiBold,
+              fontSize: 12
+            }}
+          >
+            {Number(item.rating).toFixed(1)}
           </Text>
         </View>
 
-        {/* tag catégorie */}
+        {/* catégorie */}
         <View
           style={{
             position: 'absolute',
@@ -217,34 +204,58 @@ export default function HomeScreen() {
             backgroundColor: 'rgba(255,255,255,0.85)',
             paddingHorizontal: 10,
             paddingVertical: 6,
-            borderRadius: radius.pill,
+            borderRadius: radius.pill
           }}
         >
-          <Text style={{ fontFamily: typography.semiBold, fontSize: 12, color: colors.textLight }}>{item.category}</Text>
+          <Text
+            style={{
+              fontFamily: typography.semiBold,
+              fontSize: 12,
+              color: colors.textLight
+            }}
+          >
+            {item.category}
+          </Text>
         </View>
       </View>
 
       <View style={{ padding: spacing.md }}>
-        <Text style={{ fontFamily: typography.semiBold, fontSize: 16, color: colors.text }} numberOfLines={1}>
+        <Text
+          style={{
+            fontFamily: typography.semiBold,
+            fontSize: 16,
+            color: colors.text
+          }}
+          numberOfLines={1}
+        >
           {item.nom}
         </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+
+        <View style={{ flexDirection: 'row', marginTop: 6 }}>
           {!!item.timeMin && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+            <View style={{ flexDirection: 'row', marginRight: 12 }}>
               <Icon name="time" size={16} color={colors.textLight} />
-              <Text style={{ color: colors.textLight, marginLeft: 4, fontSize: 13 }}>{item.timeMin} min</Text>
+              <Text style={{ marginLeft: 4, fontSize: 13, color: colors.textLight }}>
+                {item.timeMin} min
+              </Text>
             </View>
           )}
+
           {!!item.distanceKm && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+            <View style={{ flexDirection: 'row', marginRight: 12 }}>
               <Icon name="navigate" size={16} color={colors.textLight} />
-              <Text style={{ color: colors.textLight, marginLeft: 4, fontSize: 13 }}>{item.distanceKm} km</Text>
+              <Text style={{ marginLeft: 4, fontSize: 13, color: colors.textLight }}>
+                {item.distanceKm.toFixed(1)} km
+              </Text>
             </View>
           )}
+
           {!!item.price && (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row' }}>
               <Icon name="cash" size={16} color={colors.textLight} />
-              <Text style={{ color: colors.textLight, marginLeft: 4, fontSize: 13 }}>{item.price}</Text>
+              <Text style={{ marginLeft: 4, fontSize: 13, color: colors.textLight }}>
+                {item.price}
+              </Text>
             </View>
           )}
         </View>
@@ -252,31 +263,51 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  // ----- RENDER
+  // ----- RENDER -----
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: spacing.xl * 3 }}
-        keyboardShouldPersistTaps="handled"
       >
         {/* HEADER */}
         <LinearGradient
           colors={['#FFFFFF', 'rgba(255,255,255,0.85)']}
-          style={{ paddingTop: 54, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg }}
+          style={{
+            paddingTop: 54,
+            paddingBottom: spacing.lg,
+            paddingHorizontal: spacing.lg
+          }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.textLight, fontSize: 13, fontFamily: typography.regular }}>
+              <Text
+                style={{
+                  color: colors.textLight,
+                  fontSize: 13,
+                  fontFamily: typography.regular
+                }}
+              >
                 Bonjour,
               </Text>
-              <Text style={{ color: colors.text, fontSize: 22, fontFamily: typography.bold }}>
+              <Text
+                style={{
+                  color: colors.text,
+                  fontSize: 22,
+                  fontFamily: typography.bold
+                }}
+              >
                 {user?.nom || 'Utilisateur'} 👋
               </Text>
             </View>
+
             <TouchableOpacity
-              onPress={() => router.push('/profile' as any)}
-              style={{ padding: 10, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,0.04)' }}
+              onPress={() => router.push('/profile')}
+              style={{
+                padding: 10,
+                borderRadius: radius.pill,
+                backgroundColor: 'rgba(0,0,0,0.04)'
+              }}
             >
               <Icon name="person" size={22} color={colors.text} />
             </TouchableOpacity>
@@ -293,7 +324,7 @@ export default function HomeScreen() {
               borderColor: colors.border,
               backgroundColor: 'rgba(255,255,255,0.9)',
               paddingHorizontal: spacing.md,
-              height: 48,
+              height: 48
             }}
           >
             <Icon name="search" size={18} color={colors.textLight} />
@@ -304,11 +335,22 @@ export default function HomeScreen() {
                 marginLeft: 8,
                 flex: 1,
                 fontFamily: typography.regular,
-                color: colors.text,
+                color: colors.text
               }}
             />
-            <TouchableOpacity onPress={() => router.push('/restaurants' as any)} style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
-              <Text style={{ color: colors.primary, fontFamily: typography.semiBold }}>Filtrer</Text>
+
+            <TouchableOpacity
+              onPress={() => router.push('/restaurants')}
+              style={{ paddingHorizontal: 8, paddingVertical: 6 }}
+            >
+              <Text
+                style={{
+                  color: colors.primary,
+                  fontFamily: typography.semiBold
+                }}
+              >
+                Filtrer
+              </Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -332,7 +374,7 @@ export default function HomeScreen() {
         </View>
 
         {/* POPULAIRES */}
-        <SectionHeader title="Populaires aujourd’hui" action={() => router.push('/restaurants' as any)} />
+        <SectionHeader title="Populaires aujourd’hui" action={() => router.push('/restaurants')} />
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -342,57 +384,55 @@ export default function HomeScreen() {
           renderItem={({ item }) => <RestaurantCard item={item} />}
         />
 
-        {/* BANNIÈRE RECO */}
+        {/* RECOMMANDÉ */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
           <LinearGradient
             colors={['#FFF1E6', '#FFFFFF']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
             style={{
               borderRadius: radius.lg,
               padding: spacing.lg,
               borderWidth: 1,
-              borderColor: colors.border,
-              overflow: 'hidden',
+              borderColor: colors.border
             }}
           >
-            <Text style={{ fontFamily: typography.semiBold, color: colors.text, fontSize: 16, marginBottom: 6 }}>
+            <Text
+              style={{
+                fontFamily: typography.semiBold,
+                fontSize: 16,
+                color: colors.text,
+                marginBottom: 6
+              }}
+            >
               Recommandé pour vous
             </Text>
-            <Text style={{ color: colors.textLight, fontFamily: typography.regular, marginBottom: spacing.md }}>
+            <Text
+              style={{
+                color: colors.textLight,
+                fontFamily: typography.regular,
+                marginBottom: spacing.md
+              }}
+            >
               Cuisine congolaise authentique dans une ambiance chaleureuse.
             </Text>
+
             <TouchableOpacity
-              onPress={() => router.push('/restaurants' as any)}
+              onPress={() => router.push('/restaurants')}
               style={{
-                alignSelf: 'flex-start',
                 paddingVertical: 10,
                 paddingHorizontal: 14,
                 borderRadius: radius.pill,
-                backgroundColor: colors.primary,
+                backgroundColor: colors.primary
               }}
-              activeOpacity={0.85}
             >
-              <Text style={{ color: '#fff', fontFamily: typography.semiBold }}>Découvrir</Text>
+              <Text style={{ color: '#fff', fontFamily: typography.semiBold }}>
+                Découvrir
+              </Text>
             </TouchableOpacity>
-
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=1200&auto=format&fit=crop' }}
-              style={{
-                position: 'absolute',
-                right: -12,
-                bottom: -6,
-                width: 140,
-                height: 140,
-                borderRadius: radius.lg,
-                opacity: 0.18,
-              }}
-            />
           </LinearGradient>
         </View>
 
         {/* PRÈS DE VOUS */}
-        <SectionHeader title="Près de vous" action={() => router.push('/restaurants' as any)} />
+        <SectionHeader title="Près de vous" action={() => router.push('/restaurants')} />
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -403,7 +443,6 @@ export default function HomeScreen() {
         />
       </ScrollView>
 
-      {/* Bottom nav flottante */}
       <BottomNavigation currentRoute="home" />
     </View>
   );

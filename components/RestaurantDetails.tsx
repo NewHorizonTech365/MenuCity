@@ -13,7 +13,7 @@ type MenuItem = {
   nom: string;
   prix: string;
   description?: string;
-  image?: string; // ⇐ important: l'image du plat est dans chaque item du menu
+  photosMenu?: string[]; // ⬅️ ici les images réelles des plats
 };
 
 interface Props {
@@ -24,9 +24,6 @@ interface Props {
 export default function RestaurantDetails({ restaurant, onInvite }: Props) {
   const router = useRouter();
   const { colors, spacing, radius, typography } = useTheme();
-
-  const fallbackDishImg =
-    "https://images.unsplash.com/photo-1551218808-94e220e084d2?w=1200&auto=format&fit=crop&q=60";
 
   const dishes: MenuItem[] = (restaurant.menu as unknown as MenuItem[]) || [];
 
@@ -49,10 +46,7 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 140 }} // marge pour le CTA
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
         {/* HERO */}
         <Image
           source={{ uri: restaurant.image }}
@@ -64,11 +58,11 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
           }}
         />
 
-        {/* LOGO (si dispo) */}
+        {/* LOGO */}
         <View style={{ alignItems: "center", marginTop: -50 }}>
-          {!!(restaurant as any).logo && (
+          {!!restaurant.logo && (
             <Image
-              source={{ uri: (restaurant as any).logo }}
+              source={{ uri: restaurant.logo }}
               style={{
                 width: 110,
                 height: 110,
@@ -115,14 +109,14 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
           </Text>
 
           {/* PHOTOS RESTO */}
-          {(restaurant as any).photos?.length ? (
+          {!!restaurant.photos?.length && (
             <>
               <Text style={{ fontFamily: typography.bold, color: colors.text, fontSize: 20, marginBottom: 12 }}>
                 Photos du restaurant
               </Text>
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
-                {(restaurant as any).photos.map((p: string, idx: number) => (
+                {restaurant.photos.map((p, idx) => (
                   <Image
                     key={idx}
                     source={{ uri: p }}
@@ -137,9 +131,9 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
                 ))}
               </ScrollView>
             </>
-          ) : null}
+          )}
 
-          {/* MENU VISUEL (carrousel horizontal) */}
+          {/* MENU */}
           {!!dishes.length && (
             <>
               <Text style={{ fontFamily: typography.bold, fontSize: 20, color: colors.text, marginBottom: 12 }}>
@@ -147,39 +141,48 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
               </Text>
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
-                {dishes.map((dish, idx) => (
-                  <View
-                    key={dish.id ?? `${dish.nom}-${idx}`}
-                    style={{
-                      width: width * 0.55,
-                      backgroundColor: colors.card,
-                      borderRadius: radius.lg,
-                      overflow: "hidden",
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      marginRight: spacing.md,
-                    }}
-                  >
-                    <Image
-                      source={{ uri: dish.image || fallbackDishImg }}
-                      style={{ width: "100%", height: 120, backgroundColor: "#eee" }}
-                    />
-                    <View style={{ padding: spacing.md }}>
-                      <Text
-                        numberOfLines={1}
-                        style={{ fontFamily: typography.semiBold, color: colors.text, fontSize: 15 }}
-                      >
-                        {dish.nom}
-                      </Text>
-                      <Text style={{ fontFamily: typography.bold, color: colors.primary, marginTop: 6 }}>{dish.prix}</Text>
+                {dishes.map((dish, idx) => {
+                  const dishImg =
+                    dish.photosMenu?.[0] ||
+                    restaurant.photos?.[0] || // fallback intelligent
+                    restaurant.image; // sécurité finale
+
+                  return (
+                    <View
+                      key={dish.id ?? `${dish.nom}-${idx}`}
+                      style={{
+                        width: width * 0.55,
+                        backgroundColor: colors.card,
+                        borderRadius: radius.lg,
+                        overflow: "hidden",
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        marginRight: spacing.md,
+                      }}
+                    >
+                      <Image
+                        source={{ uri: dishImg }}
+                        style={{ width: "100%", height: 120, backgroundColor: "#eee" }}
+                      />
+                      <View style={{ padding: spacing.md }}>
+                        <Text
+                          numberOfLines={1}
+                          style={{ fontFamily: typography.semiBold, color: colors.text, fontSize: 15 }}
+                        >
+                          {dish.nom}
+                        </Text>
+                        <Text style={{ fontFamily: typography.bold, color: colors.primary, marginTop: 6 }}>
+                          {dish.prix}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </ScrollView>
             </>
           )}
 
-          {/* LOCALISATION (placeholder) */}
+          {/* LOCALISATION */}
           <Text style={{ fontFamily: typography.bold, fontSize: 20, color: colors.text, marginBottom: 12 }}>
             Localisation
           </Text>
@@ -252,6 +255,7 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
               {restaurant.telephone}
             </Text>
           </View>
+
           <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
             <Icon name="time" size={18} color={colors.textLight} />
             <Text style={{ marginLeft: 8, fontFamily: typography.regular, color: colors.textLight }}>
@@ -261,7 +265,7 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
         </View>
       </ScrollView>
 
-      {/* INVITER */}
+      {/* INVITER CTA */}
       <View
         style={{
           position: "absolute",
@@ -275,7 +279,7 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
         }}
       >
         <TouchableOpacity
-          onPress={onInvite} // ouvre bien le sheet parent
+          onPress={onInvite}
           style={{
             backgroundColor: colors.primary,
             borderRadius: radius.pill,

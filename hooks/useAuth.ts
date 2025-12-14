@@ -1,58 +1,90 @@
+import { useState } from "react";
+import { User, AuthState } from "../types/User";
 
-// useAuth (hook)
-// Hook local qui fournit un état d'authentification mocké pour le développement.
-// Remplacez cette implémentation par des appels réels à votre backend
-// (ex: fetch/Axios vers une API REST) lorsque vous intégrez l'auth réelle.
-import { useState, useEffect } from 'react';
-import { User, AuthState } from '../types/User';
+const ADMIN_PIN = "2424";
 
-// Mock user data
 const mockUser: User = {
-  id: '1',
-  nom: 'Amara Mukendi',
-  email: 'amara.mukendi@example.com',
-  telephone: '+243 234 5678',
-  photoProfil: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-  photoCouverture: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=200&fit=crop',
+  id: "1",
+  nom: "Amara Mukendi",
+  email: "amara.mukendi@example.com",
+  telephone: "+243 234 5678",
+  photoProfil:
+    "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
+  photoCouverture:
+    "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=200&fit=crop",
   restaurants: 27,
   points: 340,
   avis: 3,
-  cuisinesPreferees: ['Congolaise', 'Fusion Africaine', 'Grillades'],
+  cuisinesPreferees: ["Congolaise", "Fusion Africaine", "Grillades"],
   historiqueVisites: [
     {
-      id: '1',
-      nom: 'Chez Mama Ngozi',
-      cuisine: 'Congolaise',
-      date: '2024-01-15'
-    }
-  ]
+      id: "1",
+      nom: "Chez Mama Ngozi",
+      cuisine: "Congolaise",
+      date: "2024-01-15",
+    },
+  ],
 };
 
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
-    user: null
+    user: null,
   });
 
-  // Mock login: simule un délai réseau et connecte l'utilisateur mock
-  const login = (email: string, password: string): Promise<boolean> => {
+  // ---------------------------
+  // 🔐 LOGIN (user + admin)
+  // ---------------------------
+  const login = async (email: string, password: string): Promise<boolean> => {
     return new Promise((resolve) => {
       setTimeout(() => {
-        console.log('Tentative de connexion:', email);
+
+        // 🔐 LOGIN ADMIN
+        if (
+          email.toLowerCase() === "admin@foodlubumbashi.com" &&
+          password === ADMIN_PIN
+        ) {
+          setAuthState({
+            isAuthenticated: true,
+            user: {
+              id: "admin",
+              nom: "Administrateur",
+              email: "admin@foodlubumbashi.com",
+              telephone: "",
+              role: "admin",       // 🔥 OBLIGATOIRE !!
+            } as User,
+          });
+
+          console.log("ADMIN connecté ✔");
+          resolve(true);
+          return;
+        }
+
+        // 🔓 LOGIN USER NORMAL
         setAuthState({
           isAuthenticated: true,
-          user: mockUser
+          user: {
+            ...mockUser,
+            role: "user",
+          } as User,
         });
+
         resolve(true);
-      }, 1000);
+      }, 800);
     });
   };
 
-  // Mock register : crée un nouvel utilisateur basé sur le mockUser
-  const register = (nom: string, email: string, password: string, telephone: string): Promise<boolean> => {
+  // ---------------------------
+  // REGISTER
+  // ---------------------------
+  const register = async (
+    nom: string,
+    email: string,
+    password: string,
+    telephone: string
+  ): Promise<boolean> => {
     return new Promise((resolve) => {
       setTimeout(() => {
-        console.log('Tentative d\'inscription:', nom, email);
         const newUser: User = {
           ...mockUser,
           nom,
@@ -62,32 +94,39 @@ export const useAuth = () => {
           points: 0,
           avis: 0,
           cuisinesPreferees: [],
-          historiqueVisites: []
+          historiqueVisites: [],
+          role: "user",
         };
+
         setAuthState({
           isAuthenticated: true,
-          user: newUser
+          user: newUser,
         });
+
         resolve(true);
-      }, 1000);
+      }, 800);
     });
   };
 
-  // Déconnexion simple : remet l'état auth à null
+  // ---------------------------
+  // LOGOUT
+  // ---------------------------
   const logout = () => {
     setAuthState({
       isAuthenticated: false,
-      user: null
+      user: null,
     });
   };
 
-  // Met à jour l'objet user en mémoire (utile pour les tests)
+  // ---------------------------
+  // UPDATE USER
+  // ---------------------------
   const updateUser = (updatedUser: Partial<User>) => {
     if (authState.user) {
-      setAuthState({
-        ...authState,
-        user: { ...authState.user, ...updatedUser }
-      });
+      setAuthState((prev) => ({
+        ...prev,
+        user: { ...prev.user!, ...updatedUser },
+      }));
     }
   };
 
@@ -96,6 +135,6 @@ export const useAuth = () => {
     login,
     register,
     logout,
-    updateUser
+    updateUser,
   };
 };
