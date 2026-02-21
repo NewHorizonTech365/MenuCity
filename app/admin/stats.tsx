@@ -19,7 +19,7 @@ export default function AdminStatsScreen() {
     if (!user || user.role !== "admin") {
       router.replace("/home");
     }
-  }, [user]);
+  }, [router, user]);
 
   // 🧠 CALCULS STATISTIQUES (DIFFÉRENTS DU DASHBOARD)
   const stats = useMemo(() => {

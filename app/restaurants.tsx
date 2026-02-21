@@ -1,6 +1,6 @@
 // app/restaurants.tsx — Swipe Tinder + Liste complète (toggle) + Data centralisée
 
-import React, { useMemo, useState, useRef } from "react";
+import React, { useCallback, useMemo, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -54,9 +54,12 @@ export default function RestaurantsScreen() {
     []
   );
 
-  const norm = (s: string) => s.toLowerCase().replace(/\s|-/g, "");
-  const matchCat = (itemCat: string, key: string) =>
-    key === "all" ? true : norm(itemCat) === norm(key);
+  const norm = useCallback((s: string) => s.toLowerCase().replace(/\s|-/g, ""), []);
+  const matchCat = useCallback(
+    (itemCat: string, key: string) =>
+      key === "all" ? true : norm(itemCat) === norm(key),
+    [norm]
+  );
 
   // 🎯 — FILTRAGE AVEC DONNÉES DU DATAPROVIDER
   const data = useMemo(() => {
@@ -69,7 +72,7 @@ export default function RestaurantsScreen() {
             sp.toLowerCase().includes(search.toLowerCase())
           ))
     );
-  }, [restaurants, search, selectedCatKey]);
+  }, [matchCat, restaurants, search, selectedCatKey]);
 
   // ---- Swiper
   const swiperRef = useRef<Swiper<Restaurant>>(null);
@@ -80,6 +83,7 @@ export default function RestaurantsScreen() {
 
   const openInvite = (r: Restaurant) => setSelectedRestaurant(r);
   const closeInvite = () => setSelectedRestaurant(null);
+  const handleSendInvitation = () => {};
 
   // ---- Card swipée
   const renderSwipeCard = (r?: Restaurant) => {
@@ -461,6 +465,7 @@ export default function RestaurantsScreen() {
             <InviteFriendSheet
               restaurant={selectedRestaurant}
               onClose={closeInvite}
+              onSendInvitation={handleSendInvitation}
             />
           )}
         </Modal>

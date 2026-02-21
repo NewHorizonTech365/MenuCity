@@ -19,6 +19,8 @@ import { useTheme } from '../styles/theme';
 
 import BottomNavigation from '../components/BottomNavigation';
 import Icon from '../components/Icon';
+import { supabase } from "../lib/supabase";
+import { useEffect } from 'react';
 
 import type { Restaurant } from '../types/Restaurant';
 
@@ -87,6 +89,21 @@ export default function HomeScreen() {
   const filteredNearYou = nearYou.filter((r) =>
     matchCat(r.category, selectedCatKey)
   );
+
+  // test supabase 
+
+  useEffect(() => {
+    const test = async () => {
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("*")
+        .limit(1);
+
+    console.log("SUPABASE TEST:", data, error);
+  };
+
+  test();
+}, []);
 
   // Navigation
   const openRestaurant = (id: string) =>

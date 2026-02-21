@@ -68,7 +68,7 @@ export default function SimpleBottomSheet({
         }),
       ]).start();
     }
-  }, [isVisible]);
+  }, [backdropOpacity, gestureTranslateY, isVisible, translateY]);
 
   const close = () => onClose?.();
 

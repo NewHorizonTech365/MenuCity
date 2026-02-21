@@ -13,7 +13,6 @@ import {
   Animated,
   Platform,
   KeyboardAvoidingView,
-  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../providers/AuthProvider";
@@ -49,7 +48,7 @@ export default function RestaurantsAdminScreen() {
     if (!user || user.role !== "admin") {
       router.replace("/home");
     }
-  }, [user]);
+  }, [router, user]);
 
   // UI state
   const [query, setQuery] = useState("");
@@ -67,7 +66,7 @@ export default function RestaurantsAdminScreen() {
       duration: 360,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [fadeAnim]);
 
   // Filtered restaurants
   const filtered = useMemo(() => {
@@ -219,12 +218,8 @@ export default function RestaurantsAdminScreen() {
       }
       // reload local menuRestaurant reference from provider's restaurants
       setSelectedMenuItem(null);
-      const refreshed = (await Promise.resolve()).then(() => {
-        // small trick: the provider updates state, our local menuRestaurant may be stale;
-        // we'll fetch updated restaurant from `restaurants`
-        const fresh = restaurants.find((x) => x.id === menuRestaurant.id);
-        setMenuRestaurant(fresh || null);
-      });
+      const fresh = restaurants.find((x) => x.id === menuRestaurant.id);
+      setMenuRestaurant(fresh || null);
     } catch (e) {
       console.error("save menu item error", e);
       Alert.alert("Erreur", "Impossible d'enregistrer le plat");
@@ -804,8 +799,8 @@ function FormRow({ label, children }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  smallBtn: (colors: any, radius: any) => ({
+const styles = {
+  smallBtn: (colors: any, radius: any): any => ({
     padding: 10,
     borderRadius: 8,
     backgroundColor: colors.card,
@@ -814,7 +809,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   }),
-  actionBtn: (colors: any, radius: any) => ({
+  actionBtn: (colors: any, radius: any): any => ({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
@@ -822,7 +817,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.primary,
   }),
-  actionBtnAlt: (colors: any, radius: any) => ({
+  actionBtnAlt: (colors: any, radius: any): any => ({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -831,4 +826,4 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     justifyContent: "center",
   }),
-});
+};

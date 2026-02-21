@@ -1,137 +1,199 @@
-import { useState } from "react";
-import { User, AuthState } from "../types/User";
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+import type { User } from "../types/User";
 
-const ADMIN_PIN = "2424";
+type Role = "user" | "admin";
 
-const mockUser: User = {
-  id: "1",
-  nom: "Amara Mukendi",
-  email: "amara.mukendi@example.com",
-  telephone: "+243 234 5678",
-  photoProfil:
-    "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-  photoCouverture:
-    "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=200&fit=crop",
-  restaurants: 27,
-  points: 340,
-  avis: 3,
-  cuisinesPreferees: ["Congolaise", "Fusion Africaine", "Grillades"],
-  historiqueVisites: [
-    {
-      id: "1",
-      nom: "Chez Mama Ngozi",
-      cuisine: "Congolaise",
-      date: "2024-01-15",
-    },
-  ],
-};
+const toRole = (value: unknown): Role => (value === "admin" ? "admin" : "user");
 
 export const useAuth = () => {
-  const [authState, setAuthState] = useState<AuthState>({
-    isAuthenticated: false,
-    user: null,
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [role, setRole] = useState<Role | null>(null);
 
-  // ---------------------------
-  // 🔐 LOGIN (user + admin)
-  // ---------------------------
-  const login = async (email: string, password: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
+  const loadProfile = useCallback(async (userId: string) => {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    const metadata = authUser?.user_metadata ?? {};
 
-        // 🔐 LOGIN ADMIN
-        if (
-          email.toLowerCase() === "admin@foodlubumbashi.com" &&
-          password === ADMIN_PIN
-        ) {
-          setAuthState({
-            isAuthenticated: true,
-            user: {
-              id: "admin",
-              nom: "Administrateur",
-              email: "admin@foodlubumbashi.com",
-              telephone: "",
-              role: "admin",       // 🔥 OBLIGATOIRE !!
-            } as User,
-          });
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
-          console.log("ADMIN connecté ✔");
-          resolve(true);
-          return;
+    if (!error && data) {
+      const normalizedUser: User = {
+        id: data.id,
+        nom: data.nom ?? metadata.nom ?? "",
+        email: data.email ?? authUser?.email ?? "",
+        telephone: data.telephone ?? metadata.telephone ?? "",
+        role: toRole(data.role),
+        restaurants: data.restaurants ?? 0,
+        points: data.points ?? 0,
+        avis: data.avis ?? 0,
+        cuisinesPreferees: data.cuisinesPreferees ?? [],
+        dernierVisites: data.dernierVisites ?? [],
+        photoProfil: data.photoProfil ?? metadata.photoProfil,
+        photoCouverture: data.photoCouverture ?? metadata.photoCouverture,
+        bio: data.bio ?? metadata.bio,
+      };
+
+      setUser(normalizedUser);
+      setRole(normalizedUser.role);
+      setIsAuthenticated(true);
+      return;
+    }
+
+    if (authUser) {
+      setUser({
+        id: authUser.id,
+        nom: metadata.nom ?? "",
+        email: authUser.email ?? "",
+        telephone: metadata.telephone ?? "",
+        role: "user",
+        restaurants: 0,
+        points: 0,
+        avis: 0,
+        cuisinesPreferees: [],
+        dernierVisites: [],
+        photoProfil: metadata.photoProfil,
+        photoCouverture: metadata.photoCouverture,
+        bio: metadata.bio,
+      });
+      setRole("user");
+      setIsAuthenticated(true);
+      return;
+    }
+
+    setUser(null);
+    setIsAuthenticated(false);
+    setRole(null);
+  }, []);
+
+  const checkUser = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.user) {
+      await loadProfile(session.user.id);
+    } else {
+      setUser(null);
+      setIsAuthenticated(false);
+      setRole(null);
+    }
+  }, [loadProfile]);
+
+  useEffect(() => {
+    checkUser();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_, session) => {
+        if (session?.user) {
+          await loadProfile(session.user.id);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+          setRole(null);
         }
+      }
+    );
 
-        // 🔓 LOGIN USER NORMAL
-        setAuthState({
-          isAuthenticated: true,
-          user: {
-            ...mockUser,
-            role: "user",
-          } as User,
-        });
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [checkUser, loadProfile]);
 
-        resolve(true);
-      }, 800);
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
+
+    return !error;
   };
 
-  // ---------------------------
-  // REGISTER
-  // ---------------------------
   const register = async (
     nom: string,
     email: string,
     password: string,
     telephone: string
-  ): Promise<boolean> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const newUser: User = {
-          ...mockUser,
+  ) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
           nom,
-          email,
           telephone,
-          restaurants: 0,
-          points: 0,
-          avis: 0,
-          cuisinesPreferees: [],
-          historiqueVisites: [],
+        },
+      },
+    });
+
+    if (error) return false;
+
+    const userId = data.user?.id;
+    if (userId) {
+      await supabase.from("profiles").upsert(
+        {
+          id: userId,
+          email,
           role: "user",
-        };
-
-        setAuthState({
-          isAuthenticated: true,
-          user: newUser,
-        });
-
-        resolve(true);
-      }, 800);
-    });
-  };
-
-  // ---------------------------
-  // LOGOUT
-  // ---------------------------
-  const logout = () => {
-    setAuthState({
-      isAuthenticated: false,
-      user: null,
-    });
-  };
-
-  // ---------------------------
-  // UPDATE USER
-  // ---------------------------
-  const updateUser = (updatedUser: Partial<User>) => {
-    if (authState.user) {
-      setAuthState((prev) => ({
-        ...prev,
-        user: { ...prev.user!, ...updatedUser },
-      }));
+        },
+        { onConflict: "id" }
+      );
     }
+
+    return true;
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const updateUser = (patch: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      if (patch.role) setRole(patch.role);
+      return next;
+    });
+
+    void (async () => {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const profilePatch: Record<string, unknown> = {};
+      if (patch.email !== undefined) profilePatch.email = patch.email;
+      if (patch.role !== undefined) profilePatch.role = patch.role;
+
+      if (Object.keys(profilePatch).length > 0) {
+        await supabase.from("profiles").update(profilePatch).eq("id", authUser.id);
+      }
+
+      const metadataPatch: Record<string, unknown> = {};
+      if (patch.nom !== undefined) metadataPatch.nom = patch.nom;
+      if (patch.telephone !== undefined) metadataPatch.telephone = patch.telephone;
+      if (patch.bio !== undefined) metadataPatch.bio = patch.bio;
+      if (patch.photoProfil !== undefined) metadataPatch.photoProfil = patch.photoProfil;
+      if (patch.photoCouverture !== undefined) metadataPatch.photoCouverture = patch.photoCouverture;
+
+      if (Object.keys(metadataPatch).length > 0) {
+        await supabase.auth.updateUser({
+          data: metadataPatch,
+        });
+      }
+    })();
   };
 
   return {
-    ...authState,
+    user,
+    role,
+    isAuthenticated,
     login,
     register,
     logout,

@@ -4,6 +4,7 @@ import { restaurantsLubumbashi } from "../data/restaurants";
 import { loadJson, saveJson, STORAGE_KEYS } from "../lib/storage";
 import type { Restaurant } from "../types/Restaurant";
 import * as Crypto from "expo-crypto";
+import { supabase } from "../lib/supabase";
 
 /**
  * DataContext: expose restaurants + fonctions CRUD
@@ -102,10 +103,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     seedOrLoad();
-  }, []);
+  }, [seedOrLoad]);
 
   const reload = async () => {
     await seedOrLoad();
+  };
+
+  const loadRestaurantsFromSupabase = async () => {
+    const { data, error } = await supabase
+      .from("restaurants")
+      .select("*");
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    console.log("RESTOS SUPABASE:", data);
   };
 
   // -------------------------------------------------------------

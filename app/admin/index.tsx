@@ -15,7 +15,7 @@ import Animated, {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, updateUser, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const { restaurants } = useData();
   const { colors, spacing, radius, typography } = useTheme();
 
@@ -24,11 +24,7 @@ export default function AdminDashboard() {
     if (!isAuthenticated || user?.role !== "admin") {
       router.replace("/home");
     }
-  }, [user, isAuthenticated]);
-
-  if (user === null) {
-    return null;
-  }
+  }, [isAuthenticated, router, user]);
 
   // -------------------------------------------
   // 📊 STATISTIQUES CALCULÉES
@@ -94,9 +90,13 @@ export default function AdminDashboard() {
     };
   }, [restaurants]);
 
+  if (user === null) {
+    return null;
+  }
+
   // Sortir du mode admin
   const exitAdmin = () => {
-    updateUser({ role: "user" });
+    logout();
     router.replace("/home");
   };
 

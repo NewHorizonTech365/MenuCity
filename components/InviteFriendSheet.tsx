@@ -12,6 +12,7 @@ import {
   Dimensions,
   Animated,
   Share as RNShare,
+  StyleSheet,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Restaurant } from "../types/Restaurant";
@@ -588,5 +589,3 @@ export default function InviteFriendSheet({
   );
 }
 
-// petit StyleSheet utilitaire pour ...StyleSheet.absoluteFillObject
-import { StyleSheet } from "react-native";
