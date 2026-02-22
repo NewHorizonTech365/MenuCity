@@ -1,0 +1,191 @@
+// components/RestaurantCard.tsx
+import React from 'react';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { useTheme } from '../styles/theme';
+import Icon from './Icon';
+import { Restaurant } from '../types/Restaurant';
+
+interface Props {
+  restaurant: Restaurant;
+  onPress: () => void;
+  onInvite: () => void;
+}
+
+export default function RestaurantCard({ restaurant, onPress, onInvite }: Props) {
+  const { colors, radius, spacing, typography } = useTheme();
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.9}
+      style={{
+        borderRadius: radius.xl,
+        backgroundColor: colors.card,
+        marginBottom: spacing.xl,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 5,
+      }}
+    >
+      {/* image */}
+      <View style={{ height: 200, backgroundColor: '#eee' }}>
+        <Image
+          source={{ uri: restaurant.image }}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+
+        {/* badge note */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 14,
+            left: 14,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            borderRadius: radius.pill,
+            paddingVertical: 4,
+            paddingHorizontal: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}
+        >
+          <Icon name="star" size={14} color="#FFD452" />
+          <Text
+            style={{
+              color: '#fff',
+              marginLeft: 6,
+              fontFamily: typography.semiBold,
+              fontSize: 12,
+            }}
+          >
+            {restaurant.note.toFixed(1)}
+          </Text>
+        </View>
+
+        {/* badge catégorie */}
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 14,
+            right: 14,
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            paddingVertical: 6,
+            paddingHorizontal: 10,
+            borderRadius: radius.pill,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: typography.semiBold,
+              fontSize: 12,
+              color: colors.text,
+            }}
+          >
+            {restaurant.cuisine}
+          </Text>
+        </View>
+      </View>
+
+      {/* content */}
+      <View style={{ padding: spacing.lg }}>
+        {/* nom + prix */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: typography.bold,
+              fontSize: 18,
+              color: colors.text,
+              flex: 1,
+              marginRight: 12,
+            }}
+          >
+            {restaurant.nom}
+          </Text>
+
+          {/* prix moyen */}
+          <View
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: radius.sm,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: typography.semiBold,
+                fontSize: 12,
+                color: '#fff',
+              }}
+            >
+              {restaurant.prixMoyen}
+            </Text>
+          </View>
+        </View>
+
+        {/* adresse */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+          <Icon name="location" size={16} color={colors.textLight} />
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: typography.regular,
+              fontSize: 13,
+              marginLeft: 6,
+              color: colors.textLight,
+              flex: 1,
+            }}
+          >
+            {restaurant.adresse}
+          </Text>
+        </View>
+
+        {/* horaires + CTA inviter */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <Icon name="time" size={16} color={colors.textLight} />
+            <Text
+              style={{
+                fontFamily: typography.regular,
+                fontSize: 13,
+                marginLeft: 6,
+                color: colors.textLight,
+              }}
+            >
+              {restaurant.horaires}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={onInvite}
+            activeOpacity={0.85}
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: radius.pill,
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+          >
+            <Icon name="person-add" size={16} color="#fff" />
+            <Text
+              style={{
+                color: '#fff',
+                fontFamily: typography.semiBold,
+                fontSize: 12,
+                marginLeft: 6,
+              }}
+            >
+              Inviter
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}

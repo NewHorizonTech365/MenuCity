@@ -1,0 +1,89 @@
+MENUCITY - Developer Guide
+
+But du projet
+------------
+MENUCITY est une application mobile cross-platform (expo) qui liste des restaurants, permet la navigation dans l'app, et ajoute des fonctionnalités d'invitation et de gestion de profil.
+
+Arborescence clé
+-----------------
+app/                 -> Pages/Routes (expo-router). Contient _layout.tsx et les écrans: index.tsx, home.tsx, restaurants.tsx, profile.tsx, map.tsx
+components/          -> Composants réutilisables (BottomNavigation, BottomSheet, Icon, InviteFriendSheet, etc.)
+assets/              -> Images et médias
+providers/           -> Fournisseurs de contexte (AuthProvider)
+hooks/               -> Hooks personnalisés (useAuth)
+styles/              -> Thèmes et styles communs
+types/               -> Définitions TypeScript (Restaurant, User)
+utils/               -> Utilitaires (ex: errorLogger)
+
+Installer et lancer
+-------------------
+1. Prérequis
+   - Node.js (14+ recommandé)
+   - Expo CLI (optionnel mais pratique): npm install -g expo-cli
+   - Un émulateur Android/iOS ou Expo Go sur mobile
+
+2. Installer les dépendances
+   - Ouvrir un terminal à la racine `MENUCITY`
+   - Executer :
+
+     npm install
+
+3. Lancer en développement
+
+   - Avec Expo (recommandé):
+
+     npm start
+
+   - Ceci ouvrira Metro Bundler et proposera QR code pour Expo Go, ou lancer un simulateur.
+
+Architecture et routage
+------------------------
+- L'app utilise `expo-router`. Les fichiers dans `app/` correspondent aux routes. Par exemple `app/restaurants.tsx` mappe à `/restaurants`.
+- `_layout.tsx` contient le layout global (header/footer) et doit envelopper les pages.
+
+Composants importants
+----------------------
+- `BottomNavigation.tsx` : barre de navigation en bas. Utilise `useRouter` d'expo-router pour naviguer.
+- `Icon.tsx` : wrapper autour d'Ionicons (expo vector icons).
+- `InviteFriendSheet.tsx` : modal pour inviter un ami (partage WhatsApp, SMS, Facebook, Email etc.).
+- `RestaurantCard.tsx` / `RestaurantDetails.tsx` : affichage des restaurants et détails.
+
+Contextes et hooks
+------------------
+- `providers/AuthProvider.tsx` : fournit le contexte d'authentification et l'état utilisateur.
+- `hooks/useAuth.ts` : hook pour accéder au contexte d'auth.
+
+Styles et thèmes
+----------------
+- `styles/commonStyles.ts` contient les couleurs et styles réutilisables.
+
+Types
+-----
+- `types/Restaurant.ts` et `types/User.ts` décrivent les formes des objets utilisés.
+
+Bonnes pratiques et conseils
+---------------------------
+- Ne modifiez pas manuellement les fichiers générés par Expo.
+- Pour ajouter une route, créez un fichier dans `app/` et exportez un composant React.
+- Pour ajouter une dépendance native, suivez la doc Expo (quelques libs nécessitent `expo prebuild`).
+- Gardez les composants petits et réutilisables.
+
+Debugging rapide
+----------------
+- Voir la console Metro (terminal) pour erreurs JS.
+- Utiliser `console.log` pour comprendre le flux.
+- Vérifier les types TypeScript : `npm run tsc` si présent.
+
+Où commencer pour un nouveau contributeur
+----------------------------------------
+1. Lire ce guide
+2. Lancer l'app en local
+3. Ouvrir `app/index.tsx` puis `app/home.tsx` pour comprendre le point d'entrée
+4. Inspecter `components/` pour les UI blocks
+
+Contact et notes
+----------------
+- Auteur: non renseigné
+- Date: 2025-09-19
+
+Fin du document
