@@ -35,6 +35,7 @@ export default function RootLayout() {
           <DataProvider>
 
             <Stack
+              initialRouteName="index"
               screenOptions={{
                 headerShown: false,
                 animation: 'default',

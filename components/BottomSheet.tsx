@@ -38,11 +38,11 @@ export default function SimpleBottomSheet({
 
   useEffect(() => {
     if (isVisible) {
-      setCurrentSnap(SNAP_POINTS.HALF);
+      setCurrentSnap(SNAP_POINTS.FULL);
       gestureTranslateY.setValue(0);
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: SCREEN_HEIGHT - SNAP_POINTS.HALF,
+          toValue: SCREEN_HEIGHT - SNAP_POINTS.FULL,
           duration: 250,
           useNativeDriver: true,
         }),

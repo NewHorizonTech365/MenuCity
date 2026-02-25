@@ -2,6 +2,8 @@
 // Backend pourra plus tard alimenter ces champs.
 
 export interface Restaurant {
+  latitude?: number;
+  longitude?: number;
   id: string;
   nom: string;
   cuisine: string;              // ex: 'Congolaise', 'Italienne'

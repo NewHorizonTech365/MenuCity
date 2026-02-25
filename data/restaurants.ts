@@ -3,6 +3,8 @@ import { Restaurant } from '../types/Restaurant';
 export const restaurantsLubumbashi: Restaurant[] = [
   {
     id: "1",
+    latitude: -11.6702,
+    longitude: 27.4689,
     nom: "Chez Maman Chérie",
     logo: "https://images.unsplash.com/photo-1584463609561-6b65e9b7c63d?w=200&h=200&fit=crop",
     photos: [
@@ -28,6 +30,8 @@ export const restaurantsLubumbashi: Restaurant[] = [
   },
   {
     id: "2",
+    latitude: -11.6554,
+    longitude: 27.4867,
     nom: "Le Baobab Doré",
     logo: "https://images.unsplash.com/photo-1604147706283-d7113f3e720d?w=200&h=200&fit=crop",
     photos: [
@@ -53,6 +57,8 @@ export const restaurantsLubumbashi: Restaurant[] = [
   },
   {
     id: "3",
+    latitude: -11.6631,
+    longitude: 27.4752,
     nom: "Saveurs du Katanga",
     logo: "https://images.unsplash.com/photo-1515165562835-c3b8e3b6a1b8?w=200&h=200&fit=crop",
     photos: [
@@ -78,6 +84,8 @@ export const restaurantsLubumbashi: Restaurant[] = [
   },
   {
     id: "4",
+    latitude: -11.6488,
+    longitude: 27.5024,
     nom: "La Terrasse Tropicale",
     logo: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&h=200&fit=crop",
     photos: [
@@ -103,6 +111,8 @@ export const restaurantsLubumbashi: Restaurant[] = [
   },
   {
     id: "5",
+    latitude: -11.6765,
+    longitude: 27.4598,
     nom: "Mama Africa",
     logo: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=200&h=200&fit=crop",
     photos: [
@@ -128,6 +138,8 @@ export const restaurantsLubumbashi: Restaurant[] = [
   },
   {
     id: "6",
+    latitude: -11.6893,
+    longitude: 27.4416,
     nom: "Le Palmier Royal",
     logo: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=200&h=200&fit=crop",
     photos: [

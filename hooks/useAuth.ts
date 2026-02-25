@@ -28,117 +28,125 @@ export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<Role | null>(null);
 
-  const loadProfile = useCallback(async (userId: string) => {
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-    const metadata = authUser?.user_metadata ?? {};
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-
-    if (!error && data) {
-      const normalizedUser: User = {
-        id: data.id,
-        nom: data.nom ?? metadata.nom ?? "",
-        email: data.email ?? authUser?.email ?? "",
-        telephone: data.telephone ?? metadata.telephone ?? "",
-        role: toRole(data.role),
-        restaurants: data.restaurants ?? 0,
-        points: data.points ?? 0,
-        avis: data.avis ?? 0,
-        cuisinesPreferees: data.cuisinesPreferees ?? [],
-        dernierVisites: data.dernierVisites ?? [],
-        photoProfil: data.photoProfil ?? metadata.photoProfil,
-        photoCouverture: data.photoCouverture ?? metadata.photoCouverture,
-        bio: data.bio ?? metadata.bio,
-      };
-
-      setUser(normalizedUser);
-      setRole(normalizedUser.role);
-      setIsAuthenticated(true);
-      setIsAuthReady(true);
-      return;
-    }
-
-    if (authUser) {
-      const profileMissing = error?.code === "PGRST116";
-      if (profileMissing) {
-        await supabase.from("profiles").upsert(
-          {
-            id: authUser.id,
-            email: authUser.email ?? "",
-            role: "user",
-          },
-          { onConflict: "id" }
-        );
-      }
-
-      setUser({
-        id: authUser.id,
-        nom: metadata.nom ?? "",
-        email: authUser.email ?? "",
-        telephone: metadata.telephone ?? "",
-        role: "user",
-        restaurants: 0,
-        points: 0,
-        avis: 0,
-        cuisinesPreferees: [],
-        dernierVisites: [],
-        photoProfil: metadata.photoProfil,
-        photoCouverture: metadata.photoCouverture,
-        bio: metadata.bio,
-      });
-      setRole("user");
-      setIsAuthenticated(true);
-      setIsAuthReady(true);
-      return;
-    }
-
+  const setSignedOutState = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
     setRole(null);
     setIsAuthReady(true);
   }, []);
 
-  const checkUser = useCallback(async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  const loadProfile = useCallback(async (userId: string) => {
+    try {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      const metadata = authUser?.user_metadata ?? {};
 
-    if (session?.user) {
-      await loadProfile(session.user.id);
-    } else {
-      setUser(null);
-      setIsAuthenticated(false);
-      setRole(null);
-      setIsAuthReady(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (!error && data) {
+        const normalizedUser: User = {
+          id: data.id,
+          nom: data.nom ?? metadata.nom ?? "",
+          email: data.email ?? authUser?.email ?? "",
+          telephone: data.telephone ?? metadata.telephone ?? "",
+          role: toRole(data.role),
+          restaurants: data.restaurants ?? 0,
+          points: data.points ?? 0,
+          avis: data.avis ?? 0,
+          cuisinesPreferees: data.cuisinesPreferees ?? [],
+          dernierVisites: data.dernierVisites ?? [],
+          photoProfil: data.photoProfil ?? metadata.photoProfil,
+          photoCouverture: data.photoCouverture ?? metadata.photoCouverture,
+          bio: data.bio ?? metadata.bio,
+        };
+
+        setUser(normalizedUser);
+        setRole(normalizedUser.role);
+        setIsAuthenticated(true);
+        setIsAuthReady(true);
+        return;
+      }
+
+      if (authUser) {
+        const profileMissing = error?.code === "PGRST116";
+        if (profileMissing) {
+          await supabase.from("profiles").upsert(
+            {
+              id: authUser.id,
+              email: authUser.email ?? "",
+              role: "user",
+            },
+            { onConflict: "id" }
+          );
+        }
+
+        setUser({
+          id: authUser.id,
+          nom: metadata.nom ?? "",
+          email: authUser.email ?? "",
+          telephone: metadata.telephone ?? "",
+          role: "user",
+          restaurants: 0,
+          points: 0,
+          avis: 0,
+          cuisinesPreferees: [],
+          dernierVisites: [],
+          photoProfil: metadata.photoProfil,
+          photoCouverture: metadata.photoCouverture,
+          bio: metadata.bio,
+        });
+        setRole("user");
+        setIsAuthenticated(true);
+        setIsAuthReady(true);
+        return;
+      }
+
+      setSignedOutState();
+    } catch {
+      setSignedOutState();
     }
-  }, [loadProfile]);
+  }, [setSignedOutState]);
+
+  const checkUser = useCallback(async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        await loadProfile(session.user.id);
+      } else {
+        setSignedOutState();
+      }
+    } catch {
+      setSignedOutState();
+    }
+  }, [loadProfile, setSignedOutState]);
 
   useEffect(() => {
     checkUser();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_, session) => {
+      try {
         if (session?.user) {
           await loadProfile(session.user.id);
         } else {
-          setUser(null);
-          setIsAuthenticated(false);
-          setRole(null);
-          setIsAuthReady(true);
+          setSignedOutState();
         }
+      } catch {
+        setSignedOutState();
       }
-    );
+    });
 
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, [checkUser, loadProfile]);
+  }, [checkUser, loadProfile, setSignedOutState]);
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
     let data;
@@ -227,7 +235,11 @@ export const useAuth = () => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      setSignedOutState();
+    }
   };
 
   const updateUser = (patch: Partial<User>) => {
@@ -239,29 +251,33 @@ export const useAuth = () => {
     });
 
     void (async () => {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-      if (!authUser) return;
+      try {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+        if (!authUser) return;
 
-      const profilePatch: Record<string, unknown> = {};
-      if (patch.role !== undefined) profilePatch.role = patch.role;
+        const profilePatch: Record<string, unknown> = {};
+        if (patch.role !== undefined) profilePatch.role = patch.role;
 
-      if (Object.keys(profilePatch).length > 0) {
-        await supabase.from("profiles").update(profilePatch).eq("id", authUser.id);
-      }
+        if (Object.keys(profilePatch).length > 0) {
+          await supabase.from("profiles").update(profilePatch).eq("id", authUser.id);
+        }
 
-      const metadataPatch: Record<string, unknown> = {};
-      if (patch.nom !== undefined) metadataPatch.nom = patch.nom;
-      if (patch.telephone !== undefined) metadataPatch.telephone = patch.telephone;
-      if (patch.bio !== undefined) metadataPatch.bio = patch.bio;
-      if (patch.photoProfil !== undefined) metadataPatch.photoProfil = patch.photoProfil;
-      if (patch.photoCouverture !== undefined) metadataPatch.photoCouverture = patch.photoCouverture;
+        const metadataPatch: Record<string, unknown> = {};
+        if (patch.nom !== undefined) metadataPatch.nom = patch.nom;
+        if (patch.telephone !== undefined) metadataPatch.telephone = patch.telephone;
+        if (patch.bio !== undefined) metadataPatch.bio = patch.bio;
+        if (patch.photoProfil !== undefined) metadataPatch.photoProfil = patch.photoProfil;
+        if (patch.photoCouverture !== undefined) metadataPatch.photoCouverture = patch.photoCouverture;
 
-      if (Object.keys(metadataPatch).length > 0) {
-        await supabase.auth.updateUser({
-          data: metadataPatch,
-        });
+        if (Object.keys(metadataPatch).length > 0) {
+          await supabase.auth.updateUser({
+            data: metadataPatch,
+          });
+        }
+      } catch {
+        // ignore network errors here to keep UI responsive
       }
     })();
   };

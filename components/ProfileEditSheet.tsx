@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { User } from "../types/User";
 import { useTheme } from "../styles/theme";
 
@@ -28,117 +37,126 @@ export default function ProfileEditSheet({ user, onUpdate, onClose }: ProfileEdi
   };
 
   return (
-    <View style={{ padding: spacing.lg }}>
-      <Text
-        style={{
-          fontFamily: typography.bold,
-          fontSize: 20,
-          color: colors.text,
-          marginBottom: spacing.lg,
-        }}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
       >
-        Modifier le profil
-      </Text>
-
-      <TextInput
-        style={{
-          borderWidth: 2,
-          borderColor: colors.primary,
-          borderRadius: radius.md,
-          padding: spacing.md,
-          marginBottom: spacing.md,
-          backgroundColor: colors.backgroundAlt,
-          color: colors.text,
-          fontFamily: typography.regular,
-        }}
-        placeholder="Nom complet"
-        placeholderTextColor={colors.textLight}
-        value={nom}
-        onChangeText={setNom}
-      />
-
-      <TextInput
-        style={{
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: radius.md,
-          padding: spacing.md,
-          marginBottom: spacing.md,
-          backgroundColor: colors.card,
-          color: colors.textLight,
-          fontFamily: typography.regular,
-        }}
-        value={user.email}
-        editable={false}
-        autoCapitalize="none"
-      />
-
-      <TextInput
-        style={{
-          borderWidth: 2,
-          borderColor: colors.primary,
-          borderRadius: radius.md,
-          padding: spacing.md,
-          marginBottom: spacing.md,
-          backgroundColor: colors.backgroundAlt,
-          color: colors.text,
-          fontFamily: typography.regular,
-        }}
-        placeholder="Telephone"
-        placeholderTextColor={colors.textLight}
-        value={telephone}
-        onChangeText={setTelephone}
-        keyboardType="phone-pad"
-      />
-
-      <TextInput
-        style={{
-          borderWidth: 2,
-          borderColor: colors.primary,
-          borderRadius: radius.md,
-          padding: spacing.md,
-          marginBottom: spacing.xl,
-          height: 100,
-          backgroundColor: colors.backgroundAlt,
-          color: colors.text,
-          fontFamily: typography.regular,
-          textAlignVertical: "top",
-        }}
-        placeholder="Votre bio"
-        placeholderTextColor={colors.textLight}
-        value={bio}
-        onChangeText={setBio}
-        multiline
-      />
-
-      <View style={{ flexDirection: "row", gap: 12 }}>
-        <TouchableOpacity
-          onPress={onClose}
+        <Text
           style={{
-            flex: 1,
+            fontFamily: typography.bold,
+            fontSize: 20,
+            color: colors.text,
+            marginBottom: spacing.lg,
+          }}
+        >
+          Modifier le profil
+        </Text>
+
+        <TextInput
+          style={{
             borderWidth: 2,
             borderColor: colors.primary,
-            paddingVertical: 14,
-            borderRadius: radius.pill,
-            alignItems: "center",
+            borderRadius: radius.md,
+            padding: spacing.md,
+            marginBottom: spacing.md,
+            backgroundColor: colors.backgroundAlt,
+            color: colors.text,
+            fontFamily: typography.regular,
           }}
-        >
-          <Text style={{ color: colors.primary, fontFamily: typography.semiBold }}>Annuler</Text>
-        </TouchableOpacity>
+          placeholder="Nom complet"
+          placeholderTextColor={colors.textLight}
+          value={nom}
+          onChangeText={setNom}
+        />
 
-        <TouchableOpacity
-          onPress={handleSave}
+        <TextInput
           style={{
-            flex: 1,
-            backgroundColor: colors.primary,
-            paddingVertical: 14,
-            borderRadius: radius.pill,
-            alignItems: "center",
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: radius.md,
+            padding: spacing.md,
+            marginBottom: spacing.md,
+            backgroundColor: colors.card,
+            color: colors.textLight,
+            fontFamily: typography.regular,
           }}
-        >
-          <Text style={{ color: "#fff", fontFamily: typography.semiBold }}>Sauvegarder</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          value={user.email}
+          editable={false}
+          autoCapitalize="none"
+        />
+
+        <TextInput
+          style={{
+            borderWidth: 2,
+            borderColor: colors.primary,
+            borderRadius: radius.md,
+            padding: spacing.md,
+            marginBottom: spacing.md,
+            backgroundColor: colors.backgroundAlt,
+            color: colors.text,
+            fontFamily: typography.regular,
+          }}
+          placeholder="Telephone"
+          placeholderTextColor={colors.textLight}
+          value={telephone}
+          onChangeText={setTelephone}
+          keyboardType="phone-pad"
+        />
+
+        <TextInput
+          style={{
+            borderWidth: 2,
+            borderColor: colors.primary,
+            borderRadius: radius.md,
+            padding: spacing.md,
+            marginBottom: spacing.xl,
+            height: 100,
+            backgroundColor: colors.backgroundAlt,
+            color: colors.text,
+            fontFamily: typography.regular,
+            textAlignVertical: "top",
+          }}
+          placeholder="Votre bio"
+          placeholderTextColor={colors.textLight}
+          value={bio}
+          onChangeText={setBio}
+          multiline
+        />
+
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={{
+              flex: 1,
+              borderWidth: 2,
+              borderColor: colors.primary,
+              paddingVertical: 14,
+              borderRadius: radius.pill,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: colors.primary, fontFamily: typography.semiBold }}>Annuler</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleSave}
+            style={{
+              flex: 1,
+              backgroundColor: colors.primary,
+              paddingVertical: 14,
+              borderRadius: radius.pill,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#fff", fontFamily: typography.semiBold }}>Sauvegarder</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

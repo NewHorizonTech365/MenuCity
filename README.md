@@ -74,6 +74,16 @@ npm install
 npm run dev
 ```
 
+Configuration environnement:
+
+```bash
+cp .env.example .env
+```
+
+Puis renseigner:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
 Autres scripts utiles:
 
 ```bash

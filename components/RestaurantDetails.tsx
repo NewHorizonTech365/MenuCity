@@ -1,4 +1,5 @@
 // components/RestaurantDetails.tsx
+import MapView, { Marker } from "react-native-maps";
 import React from "react";
 import { View, Text, Image, ScrollView, TouchableOpacity, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
@@ -26,6 +27,18 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
   const { colors, spacing, radius, typography } = useTheme();
 
   const dishes: MenuItem[] = (restaurant.menu as unknown as MenuItem[]) || [];
+  const lubumbashiFallback = { latitude: -11.6647, longitude: 27.4794 };
+
+  const lat = Number(restaurant.latitude);
+  const lng = Number(restaurant.longitude);
+  const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
+  const region = {
+    latitude: hasValidCoords ? lat : lubumbashiFallback.latitude,
+    longitude: hasValidCoords ? lng : lubumbashiFallback.longitude,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -196,12 +209,19 @@ export default function RestaurantDetails({ restaurant, onInvite }: Props) {
               marginBottom: 16,
             }}
           >
-            <Image
-              source={{
-                uri: "https://images.unsplash.com/photo-1502920917128-1aa500764ce7?q=80&w=1600&auto=format&fit=crop",
-              }}
+            <MapView
               style={{ width: "100%", height: 180 }}
-            />
+              initialRegion={region}
+              scrollEnabled={false}
+            >
+              {hasValidCoords ? (
+                <Marker
+                  coordinate={{ latitude: lat, longitude: lng }}
+                  title={restaurant.nom}
+                  description={restaurant.adresse}
+                />
+              ) : null}
+            </MapView>
           </View>
 
           <View

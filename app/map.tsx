@@ -1,58 +1,75 @@
-// app/map.tsx
-import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+import React, { useMemo } from "react";
+import { View, Text } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 import { useTheme } from "../styles/theme";
-import Icon from "../components/Icon";
+import { useData } from "../providers/DataProvider";
 
 export default function MapScreen() {
   const { colors, spacing, typography, radius } = useTheme();
-  const router = useRouter();
+  const { restaurants } = useData();
+
+  const defaultRegion = {
+    latitude: -11.6647,
+    longitude: 27.4794,
+    latitudeDelta: 0.12,
+    longitudeDelta: 0.12,
+  };
+
+  const mapRestaurants = useMemo(
+    () =>
+      restaurants
+        .map((restaurant) => {
+          const lat = Number(restaurant.latitude);
+          const lng = Number(restaurant.longitude);
+          return {
+            restaurant,
+            lat,
+            lng,
+            valid: Number.isFinite(lat) && Number.isFinite(lng),
+          };
+        })
+        .filter((item) => item.valid),
+    [restaurants]
+  );
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: spacing.lg, justifyContent: "center" }}>
-      
-      <View style={{ alignItems: "center", marginBottom: spacing.xl }}>
-        <Icon name="map" size={90} color={colors.primary} />
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <MapView
+        style={{ flex: 1 }}
+        initialRegion={defaultRegion}
+        showsUserLocation={false}
+        showsMyLocationButton={false}
+      >
+        {mapRestaurants.map(({ restaurant, lat, lng }) => (
+          <Marker
+            key={restaurant.id}
+            coordinate={{ latitude: lat, longitude: lng }}
+            title={restaurant.nom}
+            description={restaurant.adresse}
+          />
+        ))}
+      </MapView>
 
-      <Text
+      <View
         style={{
-          fontFamily: typography.bold,
-          fontSize: 26,
-          color: colors.text,
-          textAlign: "center",
-          marginBottom: spacing.md,
+          position: "absolute",
+          top: spacing.xl,
+          left: spacing.lg,
+          right: spacing.lg,
+          backgroundColor: colors.card,
+          borderRadius: radius.lg,
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: spacing.md,
         }}
       >
-        Carte en préparation
-      </Text>
-
-      <Text
-        style={{
-          fontFamily: typography.regular,
-          color: colors.textLight,
-          textAlign: "center",
-          lineHeight: 22,
-          marginBottom: spacing.xl,
-        }}
-      >
-        Bientôt vous pourrez voir les restaurants les plus proches autour de vous sur une carte interactive !
-      </Text>
-
-      <TouchableOpacity
-        onPress={() => router.push("/restaurants")}
-        style={{
-          backgroundColor: colors.primary,
-          borderRadius: radius.pill,
-          paddingVertical: 16,
-          alignItems: "center",
-        }}
-      >
-        <Text style={{ color: "#fff", fontFamily: typography.semiBold, fontSize: 16 }}>
-          Voir les restaurants
+        <Text style={{ fontFamily: typography.bold, color: colors.text, fontSize: 18 }}>
+          Carte des restaurants
         </Text>
-      </TouchableOpacity>
+        <Text style={{ fontFamily: typography.regular, color: colors.textLight, marginTop: 4 }}>
+          {mapRestaurants.length} restaurant(s) avec coordonnees valides
+        </Text>
+      </View>
     </View>
   );
 }
