@@ -17,7 +17,7 @@ import { useTheme } from "../../styles/theme";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, loginFailures } = useAuth();
   const { colors, spacing, radius, typography } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -57,6 +57,13 @@ export default function LoginScreen() {
     try {
       const result = await login(email, password);
       if (!result.ok) {
+        if (result.code === "email_not_confirmed") {
+          router.push({
+            pathname: "/auth/email-confirmation",
+            params: { email: email.trim().toLowerCase() },
+          });
+          return;
+        }
         Alert.alert("Erreur", result.message || "Identifiants incorrects");
         return;
       }
@@ -209,6 +216,71 @@ export default function LoginScreen() {
               Se connecter
             </Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() =>
+            router.push({
+              pathname: "/auth/forgot-password",
+              params: { email: email.trim().toLowerCase() },
+            })
+          }
+          style={{ marginTop: spacing.md, alignSelf: "center" }}
+        >
+          <Text
+            style={{
+              fontFamily: typography.regular,
+              color: colors.primary,
+              fontSize: 14,
+              textDecorationLine: "underline",
+            }}
+          >
+            Mot de passe oublie ?
+          </Text>
+        </TouchableOpacity>
+
+        {loginFailures > 1 ? (
+          <Text
+            style={{
+              marginTop: spacing.sm,
+              alignSelf: "center",
+              color: colors.textLight,
+              fontFamily: typography.regular,
+              fontSize: 13,
+              textAlign: "center",
+            }}
+          >
+            Plusieurs echecs detectes ({loginFailures}). Verifiez vos identifiants.
+          </Text>
+        ) : null}
+
+        <TouchableOpacity
+          onPress={() =>
+            Alert.alert(
+              "Bientot disponible",
+              "Connexion Google (phase 2) sera activee apres configuration OAuth."
+            )
+          }
+          style={{
+            marginTop: spacing.lg,
+            height: 52,
+            borderRadius: radius.pill,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.card,
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: typography.semiBold,
+              color: colors.text,
+              fontSize: 15,
+            }}
+          >
+            Continuer avec Google (phase 2)
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity

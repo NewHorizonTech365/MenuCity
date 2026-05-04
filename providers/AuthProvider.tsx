@@ -10,6 +10,9 @@ interface AuthContextType extends AuthState {
     password: string,
     telephone: string
   ) => Promise<AuthResult>;
+  forgotPassword: (email: string) => Promise<AuthResult>;
+  resendConfirmationEmail: (email: string) => Promise<AuthResult>;
+  loginFailures: number;
   logout: () => Promise<void>;
   updateUser: (updatedUser: Partial<User>) => void;
 }

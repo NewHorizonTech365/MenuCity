@@ -3,10 +3,18 @@ import { supabase } from "../lib/supabase";
 import type { User } from "../types/User";
 
 type Role = "user" | "admin";
+type AuthErrorCode =
+  | "invalid_credentials"
+  | "email_not_confirmed"
+  | "network_error"
+  | "timeout"
+  | "rate_limited"
+  | "unknown";
 export type AuthResult = {
   ok: boolean;
   message?: string;
   requiresEmailConfirmation?: boolean;
+  code?: AuthErrorCode;
 };
 
 const AUTH_TIMEOUT_MS = 15000;
@@ -21,12 +29,68 @@ const withTimeout = async <T>(promise: Promise<T>, message: string): Promise<T> 
 };
 
 const toRole = (value: unknown): Role => (value === "admin" ? "admin" : "user");
+const logAuthEvent = (
+  event: string,
+  payload: Record<string, unknown> = {}
+) => {
+  console.log(
+    JSON.stringify({
+      scope: "auth",
+      event,
+      timestamp: new Date().toISOString(),
+      ...payload,
+    })
+  );
+};
+const normalizeError = (raw: unknown): { code: AuthErrorCode; message: string } => {
+  const message =
+    typeof raw === "string"
+      ? raw
+      : typeof (raw as any)?.message === "string"
+        ? (raw as any).message
+        : "Une erreur inconnue est survenue.";
+  const lower = message.toLowerCase();
+
+  if (lower.includes("timed out") || lower.includes("trop longue")) {
+    return {
+      code: "timeout",
+      message: "Connexion trop longue. Verifiez votre connexion Internet puis reessayez.",
+    };
+  }
+  if (lower.includes("invalid login credentials")) {
+    return {
+      code: "invalid_credentials",
+      message: "Email ou mot de passe incorrect.",
+    };
+  }
+  if (lower.includes("email not confirmed")) {
+    return {
+      code: "email_not_confirmed",
+      message: "Votre email n'est pas confirme. Verifiez votre boite mail.",
+    };
+  }
+  if (lower.includes("rate limit")) {
+    return {
+      code: "rate_limited",
+      message: "Trop de tentatives. Attendez quelques minutes puis reessayez.",
+    };
+  }
+  if (lower.includes("network request failed") || lower.includes("fetch failed")) {
+    return {
+      code: "network_error",
+      message: "Reseau indisponible. Verifiez Internet puis reessayez.",
+    };
+  }
+
+  return { code: "unknown", message };
+};
 
 export const useAuth = () => {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<Role | null>(null);
+  const [loginFailures, setLoginFailures] = useState(0);
 
   const setSignedOutState = useCallback(() => {
     setUser(null);
@@ -108,6 +172,7 @@ export const useAuth = () => {
 
       setSignedOutState();
     } catch {
+      logAuthEvent("load_profile_failed", { userId });
       setSignedOutState();
     }
   }, [setSignedOutState]);
@@ -124,6 +189,7 @@ export const useAuth = () => {
         setSignedOutState();
       }
     } catch {
+      logAuthEvent("check_user_failed");
       setSignedOutState();
     }
   }, [loadProfile, setSignedOutState]);
@@ -139,6 +205,7 @@ export const useAuth = () => {
           setSignedOutState();
         }
       } catch {
+        logAuthEvent("auth_state_listener_failed");
         setSignedOutState();
       }
     });
@@ -162,26 +229,39 @@ export const useAuth = () => {
       data = result.data;
       error = result.error;
     } catch (e: any) {
+      const normalized = normalizeError(e);
+      logAuthEvent("login_failed", { code: normalized.code });
+      setLoginFailures((count) => count + 1);
       return {
         ok: false,
-        message: e?.message || "Connexion impossible pour le moment.",
+        code: normalized.code,
+        message: normalized.message,
       };
     }
 
     if (error) {
+      const normalized = normalizeError(error);
+      logAuthEvent("login_failed", { code: normalized.code });
+      setLoginFailures((count) => count + 1);
       return {
         ok: false,
-        message: error.message,
+        code: normalized.code,
+        message: normalized.message,
       };
     }
 
     if (!data.session) {
+      logAuthEvent("login_failed", { code: "email_not_confirmed" });
+      setLoginFailures((count) => count + 1);
       return {
         ok: false,
+        code: "email_not_confirmed",
         message: "Session non active. Verifie votre email puis reconnectez-vous.",
       };
     }
 
+    setLoginFailures(0);
+    logAuthEvent("login_success");
     return { ok: true };
   };
 
@@ -210,35 +290,92 @@ export const useAuth = () => {
       data = result.data;
       error = result.error;
     } catch (e: any) {
+      const normalized = normalizeError(e);
+      logAuthEvent("register_failed", { code: normalized.code });
       return {
         ok: false,
-        message: e?.message || "Inscription impossible pour le moment.",
+        code: normalized.code,
+        message: normalized.message,
       };
     }
 
     if (error) {
+      const normalized = normalizeError(error);
+      logAuthEvent("register_failed", { code: normalized.code });
       return {
         ok: false,
-        message: error.message,
+        code: normalized.code,
+        message: normalized.message,
       };
     }
 
     if (!data.session) {
+      logAuthEvent("register_pending_email_confirmation");
       return {
         ok: true,
         requiresEmailConfirmation: true,
+        code: "email_not_confirmed",
         message: "Compte cree. Confirmez votre email puis connectez-vous.",
       };
     }
 
+    logAuthEvent("register_success");
     return { ok: true };
   };
 
   const logout = async () => {
     try {
       await supabase.auth.signOut();
+      logAuthEvent("logout_success");
     } finally {
+      setLoginFailures(0);
       setSignedOutState();
+    }
+  };
+
+  const forgotPassword = async (email: string): Promise<AuthResult> => {
+    try {
+      const redirectTo = "menucity://auth/reset-password";
+      const { error } = await withTimeout(
+        supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo }),
+        "Operation trop longue. Verifiez votre connexion Internet puis reessayez."
+      );
+
+      if (error) {
+        const normalized = normalizeError(error);
+        logAuthEvent("forgot_password_failed", { code: normalized.code });
+        return { ok: false, code: normalized.code, message: normalized.message };
+      }
+      logAuthEvent("forgot_password_sent");
+      return { ok: true, message: "Email de reinitialisation envoye." };
+    } catch (e: unknown) {
+      const normalized = normalizeError(e);
+      logAuthEvent("forgot_password_failed", { code: normalized.code });
+      return { ok: false, code: normalized.code, message: normalized.message };
+    }
+  };
+
+  const resendConfirmationEmail = async (email: string): Promise<AuthResult> => {
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.resend({
+          type: "signup",
+          email: email.trim().toLowerCase(),
+        }),
+        "Operation trop longue. Verifiez votre connexion Internet puis reessayez."
+      );
+
+      if (error) {
+        const normalized = normalizeError(error);
+        logAuthEvent("resend_confirmation_failed", { code: normalized.code });
+        return { ok: false, code: normalized.code, message: normalized.message };
+      }
+      logAuthEvent("resend_confirmation_sent");
+      return { ok: true, message: "Email de confirmation renvoye." };
+    } catch (e: unknown) {
+      const normalized = normalizeError(e);
+      logAuthEvent("resend_confirmation_failed", { code: normalized.code });
+      return { ok: false, code: normalized.code, message: normalized.message };
     }
   };
 
@@ -287,9 +424,12 @@ export const useAuth = () => {
     user,
     role,
     isAuthenticated,
+    loginFailures,
     login,
     register,
     logout,
+    forgotPassword,
+    resendConfirmationEmail,
     updateUser,
   };
 };

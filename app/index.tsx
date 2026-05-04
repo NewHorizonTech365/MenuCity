@@ -8,7 +8,7 @@ import { useTheme } from "../styles/theme";
 import { useAuth } from "../providers/AuthProvider";
 
 export default function WelcomeScreen() {
-  const { isAuthReady, isAuthenticated, login } = useAuth();
+  const { isAuthReady, isAuthenticated } = useAuth();
   const router = useRouter();
   const { colors, spacing, radius, typography } = useTheme();
 
@@ -31,7 +31,6 @@ export default function WelcomeScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo neutre */}
         <View
           style={{
             width: 140,
@@ -48,7 +47,6 @@ export default function WelcomeScreen() {
           <Icon name="restaurant" size={64} color={colors.primary} />
         </View>
 
-        {/* TITLE */}
         <Text
           style={{
             fontFamily: typography.bold,
@@ -71,17 +69,10 @@ export default function WelcomeScreen() {
             marginBottom: spacing.xl,
           }}
         >
-          Explorez les meilleurs restaurants de Lubumbashi et partagez les
-          moments avec vos proches.
+          Explorez les meilleurs restaurants de Lubumbashi et partagez les moments avec vos proches.
         </Text>
 
-        {/* FEATURES */}
-        <View
-          style={{
-            width: "100%",
-            marginBottom: spacing.xl,
-          }}
-        >
+        <View style={{ width: "100%", marginBottom: spacing.xl }}>
           <View
             style={{
               flexDirection: "row",
@@ -107,12 +98,7 @@ export default function WelcomeScreen() {
                   borderColor: colors.border,
                 }}
               >
-                <Icon
-                  name={item.icon}
-                  size={28}
-                  color={colors.primary}
-                  style={{ marginBottom: 8 }}
-                />
+                <Icon name={item.icon} size={28} color={colors.primary} style={{ marginBottom: 8 }} />
                 <Text
                   style={{
                     fontFamily: typography.semiBold,
@@ -127,7 +113,6 @@ export default function WelcomeScreen() {
           </View>
         </View>
 
-        {/* ACTIONS */}
         <TouchableOpacity
           onPress={() => router.push("/auth/login")}
           style={{
@@ -139,13 +124,7 @@ export default function WelcomeScreen() {
             marginBottom: spacing.md,
           }}
         >
-          <Text
-            style={{
-              fontFamily: typography.semiBold,
-              fontSize: 18,
-              color: "#fff",
-            }}
-          >
+          <Text style={{ fontFamily: typography.semiBold, fontSize: 18, color: "#fff" }}>
             Se connecter
           </Text>
         </TouchableOpacity>
@@ -162,31 +141,8 @@ export default function WelcomeScreen() {
             marginBottom: spacing.md,
           }}
         >
-          <Text
-            style={{
-              fontFamily: typography.semiBold,
-              fontSize: 18,
-              color: colors.primary,
-            }}
-          >
+          <Text style={{ fontFamily: typography.semiBold, fontSize: 18, color: colors.primary }}>
             S'inscrire
-          </Text>
-        </TouchableOpacity>
-
-        {/* DEV LOGIN */}
-        <TouchableOpacity onPress={async () => {
-          const result = await login("test@example.com", "password123");
-          if (result.ok) router.push("/home");
-        }}>
-          <Text
-            style={{
-              fontFamily: typography.regular,
-              fontSize: 16,
-              color: colors.textLight,
-              textDecorationLine: "underline",
-            }}
-          >
-            Connexion test (développement)
           </Text>
         </TouchableOpacity>
       </ScrollView>

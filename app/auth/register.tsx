@@ -73,11 +73,10 @@ export default function RegisterScreen() {
       }
 
       if (result.requiresEmailConfirmation) {
-        Alert.alert(
-          "Verification requise",
-          result.message || "Confirmez votre email puis connectez-vous."
-        );
-        router.replace("/auth/login");
+        router.replace({
+          pathname: "/auth/email-confirmation",
+          params: { email: email.trim().toLowerCase() },
+        });
         return;
       }
 
@@ -314,6 +313,35 @@ export default function RegisterScreen() {
               }}
             >
               Deja un compte ? Se connecter
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() =>
+              Alert.alert(
+                "Bientot disponible",
+                "Inscription Google (phase 2) sera activee apres configuration OAuth."
+              )
+            }
+            style={{
+              marginBottom: spacing.md,
+              height: 52,
+              borderRadius: radius.pill,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: typography.semiBold,
+                color: colors.text,
+                fontSize: 15,
+              }}
+            >
+              Continuer avec Google (phase 2)
             </Text>
           </TouchableOpacity>
       </ScrollView>
