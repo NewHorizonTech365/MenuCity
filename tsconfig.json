@@ -4,6 +4,7 @@
     "strict": true,
     "baseUrl": ".",
     "jsx": "react-jsx",
+    "moduleSuffixes": [".native", ".web", ""],
     "paths": {
       "@/*": ["*"]
     }
@@ -17,6 +18,7 @@
   ],
   "exclude": [
     "node_modules",
-    ".env"
+    ".env",
+    "api"
   ]
 }

@@ -1,162 +1,87 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import { User } from "../types/User";
-import { useTheme } from "../styles/theme";
+import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import { triggerHaptic } from '../lib/haptics';
+import { colors, spacing, typography } from '../styles/theme';
+import type { User } from '../types/User';
+import AppButton from './ui/AppButton';
+import FormField from './ui/FormField';
 
 interface ProfileEditSheetProps {
   user: User;
-  onUpdate: (updatedUser: Partial<User>) => void;
+  onUpdate: (updatedUser: Partial<User>) => Promise<void>;
   onClose: () => void;
 }
 
 export default function ProfileEditSheet({ user, onUpdate, onClose }: ProfileEditSheetProps) {
-  const { colors, spacing, radius, typography } = useTheme();
-
   const [nom, setNom] = useState(user.nom);
   const [telephone, setTelephone] = useState(user.telephone);
-  const [bio, setBio] = useState(user.bio || "");
+  const [bio, setBio] = useState(user.bio || '');
+  const [saving, setSaving] = useState(false);
+  const [attempted, setAttempted] = useState(false);
 
-  const handleSave = () => {
-    if (!nom || !telephone) {
-      Alert.alert("Erreur", "Veuillez remplir les champs requis");
-      return;
+  const nameError = attempted && !nom.trim() ? 'Le nom est requis.' : undefined;
+  const phoneError = attempted && !telephone.trim() ? 'Le téléphone est requis.' : undefined;
+
+  const handleSave = async () => {
+    setAttempted(true);
+    if (!nom.trim() || !telephone.trim()) return;
+
+    setSaving(true);
+    try {
+      await onUpdate({ nom: nom.trim(), telephone: telephone.trim(), bio: bio.trim() });
+      triggerHaptic('success');
+      onClose();
+    } catch (error) {
+      Alert.alert('Profil non enregistré', error instanceof Error ? error.message : 'La mise à jour a échoué.');
+    } finally {
+      setSaving(false);
     }
-
-    onUpdate({ nom, telephone, bio });
-    onClose();
-    Alert.alert("Succes", "Profil mis a jour avec succes");
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
       >
-        <Text
-          style={{
-            fontFamily: typography.bold,
-            fontSize: 20,
-            color: colors.text,
-            marginBottom: spacing.lg,
-          }}
-        >
-          Modifier le profil
-        </Text>
+        <View style={styles.header}>
+          <View style={styles.headerIcon}><Ionicons name="person-outline" size={22} color={colors.primary} /></View>
+          <View style={styles.headerCopy}>
+            <Text style={styles.title}>Modifier le profil</Text>
+            <Text style={styles.subtitle}>Gardez vos informations utiles et faciles à reconnaître.</Text>
+          </View>
+        </View>
 
-        <TextInput
-          style={{
-            borderWidth: 2,
-            borderColor: colors.primary,
-            borderRadius: radius.md,
-            padding: spacing.md,
-            marginBottom: spacing.md,
-            backgroundColor: colors.backgroundAlt,
-            color: colors.text,
-            fontFamily: typography.regular,
-          }}
-          placeholder="Nom complet"
-          placeholderTextColor={colors.textLight}
-          value={nom}
-          onChangeText={setNom}
-        />
+        <View style={styles.form}>
+          <FormField label="Nom complet" value={nom} onChangeText={setNom} autoCapitalize="words" autoComplete="name" error={nameError} editable={!saving} />
+          <FormField label="Adresse e-mail" value={user.email} editable={false} hint="L’e-mail est géré par votre compte Clerk." />
+          <FormField label="Téléphone" value={telephone} onChangeText={setTelephone} keyboardType="phone-pad" autoComplete="tel" error={phoneError} editable={!saving} />
+          <FormField label="Bio" value={bio} onChangeText={setBio} placeholder="Quelques mots sur vos goûts culinaires…" multiline textAlignVertical="top" style={styles.bioInput} editable={!saving} />
+        </View>
 
-        <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: radius.md,
-            padding: spacing.md,
-            marginBottom: spacing.md,
-            backgroundColor: colors.card,
-            color: colors.textLight,
-            fontFamily: typography.regular,
-          }}
-          value={user.email}
-          editable={false}
-          autoCapitalize="none"
-        />
-
-        <TextInput
-          style={{
-            borderWidth: 2,
-            borderColor: colors.primary,
-            borderRadius: radius.md,
-            padding: spacing.md,
-            marginBottom: spacing.md,
-            backgroundColor: colors.backgroundAlt,
-            color: colors.text,
-            fontFamily: typography.regular,
-          }}
-          placeholder="Telephone"
-          placeholderTextColor={colors.textLight}
-          value={telephone}
-          onChangeText={setTelephone}
-          keyboardType="phone-pad"
-        />
-
-        <TextInput
-          style={{
-            borderWidth: 2,
-            borderColor: colors.primary,
-            borderRadius: radius.md,
-            padding: spacing.md,
-            marginBottom: spacing.xl,
-            height: 100,
-            backgroundColor: colors.backgroundAlt,
-            color: colors.text,
-            fontFamily: typography.regular,
-            textAlignVertical: "top",
-          }}
-          placeholder="Votre bio"
-          placeholderTextColor={colors.textLight}
-          value={bio}
-          onChangeText={setBio}
-          multiline
-        />
-
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          <TouchableOpacity
-            onPress={onClose}
-            style={{
-              flex: 1,
-              borderWidth: 2,
-              borderColor: colors.primary,
-              paddingVertical: 14,
-              borderRadius: radius.pill,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: colors.primary, fontFamily: typography.semiBold }}>Annuler</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleSave}
-            style={{
-              flex: 1,
-              backgroundColor: colors.primary,
-              paddingVertical: 14,
-              borderRadius: radius.pill,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: "#fff", fontFamily: typography.semiBold }}>Sauvegarder</Text>
-          </TouchableOpacity>
+        <View style={styles.actions}>
+          <AppButton label="Annuler" variant="ghost" onPress={onClose} disabled={saving} style={styles.action} />
+          <AppButton label="Enregistrer" onPress={() => void handleSave()} loading={saving} style={styles.action} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headerIcon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  headerCopy: { minWidth: 0, flex: 1 },
+  title: { color: colors.text, fontFamily: typography.bold, fontSize: 20 },
+  subtitle: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  form: { gap: spacing.md },
+  bioInput: { minHeight: 104, paddingTop: spacing.md },
+  actions: { flexDirection: 'row', gap: spacing.sm },
+  action: { flex: 1 },
+});

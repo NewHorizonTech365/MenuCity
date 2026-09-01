@@ -1,350 +1,94 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Keyboard,
-  Text,
-  View,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useAuth } from "../../providers/AuthProvider";
-import Icon from "../../components/Icon";
-import { useTheme } from "../../styles/theme";
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import AuthShell from '../../components/auth/AuthShell';
+import AppButton from '../../components/ui/AppButton';
+import FormField from '../../components/ui/FormField';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import { getStrengthColor, getStrengthLabel, validatePassword } from '../../lib/passwordValidator';
+import { useAuth } from '../../providers/AuthProvider';
+import { colors, radius, spacing, typography } from '../../styles/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register } = useAuth();
-  const { colors, spacing, radius, typography } = useTheme();
-  const scrollRef = useRef<ScrollView>(null);
-
-  const [nom, setNom] = useState("");
-  const [email, setEmail] = useState("");
-  const [telephone, setTelephone] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const { isGoogleAvailable, signUpWithGoogle } = useGoogleAuth();
+  const [nom, setNom] = useState('');
+  const [email, setEmail] = useState('');
+  const [telephone, setTelephone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  useEffect(() => {
-    const onShow = Keyboard.addListener("keyboardDidShow", (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-    });
-    const onHide = Keyboard.addListener("keyboardDidHide", () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, []);
-
-  const scrollToBottom = () => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    });
-  };
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const strength = useMemo(() => password ? validatePassword(password) : null, [password]);
 
   const handleRegister = async () => {
-    if (!nom.trim() || !email.trim() || !telephone.trim() || !password || !confirmPassword) {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert("Erreur", "Les mots de passe ne correspondent pas");
-      return;
-    }
+    if (!nom.trim() || !email.trim() || !telephone.trim() || !password || !confirmation) return Alert.alert('Champs requis', 'Complétez toutes les informations demandées.');
+    if (password !== confirmation) return Alert.alert('Mot de passe', 'Les deux mots de passe ne correspondent pas.');
+    if (strength && !strength.isValid) return Alert.alert('Mot de passe trop faible', strength.errors[0]);
 
     setLoading(true);
     try {
       const result = await register(nom.trim(), email.trim(), password, telephone.trim());
-      setLoading(false);
-
-      if (!result.ok) {
-        Alert.alert("Erreur", result.message || "Inscription impossible");
-        return;
-      }
-
+      if (!result.ok) return Alert.alert('Inscription impossible', result.message || 'Vérifiez les informations saisies.');
       if (result.requiresEmailConfirmation) {
-        router.replace({
-          pathname: "/auth/email-confirmation",
-          params: { email: email.trim().toLowerCase() },
-        });
+        router.replace({ pathname: '/auth/email-confirmation', params: { email: email.trim().toLowerCase() } });
         return;
       }
-
-      router.replace("/home");
-    } catch (e) {
+      router.replace('/home');
+    } finally {
       setLoading(false);
-      console.error("Register error", e);
-      Alert.alert("Erreur", "Une erreur est survenue");
     }
   };
 
+  const handleGoogleSignup = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await signUpWithGoogle();
+      if (!result.ok) return Alert.alert('Inscription Google impossible', result.error || 'Réessayez dans quelques instants.');
+      router.replace('/home');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const unavailable = loading || googleLoading;
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        contentContainerStyle={{
-          flexGrow: 1,
-          padding: spacing.lg,
-          paddingTop: spacing.xxl,
-          paddingBottom: spacing.xl + keyboardHeight,
-        }}
-      >
-          <TouchableOpacity onPress={() => router.back()}>
-            <Icon name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-
-          <View
-            style={{
-              width: 120,
-              height: 120,
-              borderRadius: 60,
-              backgroundColor: colors.card,
-              borderWidth: 1,
-              borderColor: colors.border,
-              justifyContent: "center",
-              alignItems: "center",
-              alignSelf: "center",
-              marginTop: spacing.xl,
-              marginBottom: spacing.xl,
-            }}
-          >
-            <Icon name="restaurant" size={55} color={colors.primary} />
+    <AuthShell title="Créer votre compte" subtitle="Rejoignez MenuCity pour inviter vos proches et personnaliser votre expérience.">
+      <View style={styles.form}>
+        <FormField label="Nom complet" value={nom} onChangeText={setNom} placeholder="Votre nom" autoCapitalize="words" autoComplete="name" editable={!unavailable} />
+        <FormField label="Adresse e-mail" value={email} onChangeText={setEmail} placeholder="vous@exemple.com" autoCapitalize="none" keyboardType="email-address" autoComplete="email" editable={!unavailable} />
+        <FormField label="Téléphone" value={telephone} onChangeText={setTelephone} placeholder="+243…" keyboardType="phone-pad" autoComplete="tel" editable={!unavailable} hint="Utilisé uniquement dans votre profil MenuCity." />
+        <FormField label="Mot de passe" value={password} onChangeText={setPassword} placeholder="8 caractères minimum" secureTextEntry autoComplete="new-password" editable={!unavailable} error={strength && !strength.isValid ? strength.errors[0] : undefined} />
+        {strength ? (
+          <View style={styles.strength}>
+            <View style={styles.strengthTrack}><View style={[styles.strengthFill, { width: `${strength.score}%`, backgroundColor: getStrengthColor(strength.score) }]} /></View>
+            <Text style={styles.strengthLabel}>Sécurité : {getStrengthLabel(strength.score)}</Text>
           </View>
+        ) : null}
+        <FormField label="Confirmer le mot de passe" value={confirmation} onChangeText={setConfirmation} placeholder="Répétez le mot de passe" secureTextEntry autoComplete="new-password" editable={!unavailable} error={confirmation && password !== confirmation ? 'Les mots de passe ne correspondent pas.' : undefined} />
+        <AppButton label="Créer mon compte" loading={loading} disabled={googleLoading} onPress={() => void handleRegister()} />
+      </View>
 
-          <Text
-            style={{
-              fontFamily: typography.bold,
-              fontSize: 32,
-              color: colors.text,
-              marginBottom: 10,
-            }}
-          >
-            Creer un compte
-          </Text>
-          <Text
-            style={{
-              fontFamily: typography.regular,
-              fontSize: 16,
-              color: colors.textLight,
-              marginBottom: spacing.xl,
-            }}
-          >
-            Rejoignez notre communaute de gourmets.
-          </Text>
-
-          <TextInput
-            placeholder="Nom complet"
-            placeholderTextColor={colors.textLight}
-            style={{
-              height: 54,
-              backgroundColor: colors.card,
-              borderRadius: radius.pill,
-              paddingHorizontal: spacing.lg,
-              borderWidth: 1,
-              borderColor: colors.border,
-              color: colors.text,
-              fontFamily: typography.regular,
-              marginBottom: spacing.md,
-            }}
-            value={nom}
-            onChangeText={setNom}
-            autoCapitalize="words"
-          />
-
-          <TextInput
-            placeholder="Adresse e-mail"
-            placeholderTextColor={colors.textLight}
-            style={{
-              height: 54,
-              backgroundColor: colors.card,
-              borderRadius: radius.pill,
-              paddingHorizontal: spacing.lg,
-              borderWidth: 1,
-              borderColor: colors.border,
-              color: colors.text,
-              fontFamily: typography.regular,
-              marginBottom: spacing.md,
-            }}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-
-          <TextInput
-            placeholder="Numero de telephone"
-            placeholderTextColor={colors.textLight}
-            onFocus={scrollToBottom}
-            style={{
-              height: 54,
-              backgroundColor: colors.card,
-              borderRadius: radius.pill,
-              paddingHorizontal: spacing.lg,
-              borderWidth: 1,
-              borderColor: colors.border,
-              color: colors.text,
-              fontFamily: typography.regular,
-              marginBottom: spacing.md,
-            }}
-            value={telephone}
-            onChangeText={setTelephone}
-            keyboardType="phone-pad"
-          />
-
-          <View
-            style={{
-              height: 54,
-              backgroundColor: colors.card,
-              borderRadius: radius.pill,
-              paddingHorizontal: spacing.lg,
-              borderWidth: 1,
-              borderColor: colors.border,
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: spacing.md,
-            }}
-          >
-            <TextInput
-              placeholder="Mot de passe"
-              placeholderTextColor={colors.textLight}
-              secureTextEntry={!showPassword}
-              onFocus={scrollToBottom}
-              style={{
-                flex: 1,
-                color: colors.text,
-                fontFamily: typography.regular,
-              }}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword((s) => !s)}>
-              <Icon
-                name={showPassword ? "eye-off" : "eye"}
-                size={20}
-                color={colors.textLight}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View
-            style={{
-              height: 54,
-              backgroundColor: colors.card,
-              borderRadius: radius.pill,
-              paddingHorizontal: spacing.lg,
-              borderWidth: 1,
-              borderColor: colors.border,
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: spacing.md,
-            }}
-          >
-            <TextInput
-              placeholder="Confirmer le mot de passe"
-              placeholderTextColor={colors.textLight}
-              secureTextEntry={!showConfirmPassword}
-              onFocus={scrollToBottom}
-              style={{
-                flex: 1,
-                color: colors.text,
-                fontFamily: typography.regular,
-              }}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
-            <TouchableOpacity onPress={() => setShowConfirmPassword((s) => !s)}>
-              <Icon
-                name={showConfirmPassword ? "eye-off" : "eye"}
-                size={20}
-                color={colors.textLight}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            onPress={handleRegister}
-            disabled={loading}
-            style={{
-              backgroundColor: colors.primary,
-              height: 54,
-              borderRadius: radius.pill,
-              justifyContent: "center",
-              alignItems: "center",
-              marginTop: spacing.lg,
-            }}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text
-                style={{
-                  color: "#fff",
-                  fontFamily: typography.semiBold,
-                  fontSize: 18,
-                }}
-              >
-                S'inscrire
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.push("/auth/login")}
-            style={{ marginTop: spacing.lg, alignSelf: "center", marginBottom: spacing.xl }}
-          >
-            <Text
-              style={{
-                fontFamily: typography.regular,
-                color: colors.primary,
-                fontSize: 15,
-              }}
-            >
-              Deja un compte ? Se connecter
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "Bientot disponible",
-                "Inscription Google (phase 2) sera activee apres configuration OAuth."
-              )
-            }
-            style={{
-              marginBottom: spacing.md,
-              height: 52,
-              borderRadius: radius.pill,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.card,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: typography.semiBold,
-                color: colors.text,
-                fontSize: 15,
-              }}
-            >
-              Continuer avec Google (phase 2)
-            </Text>
-          </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      <View style={styles.divider}><View style={styles.line} /><Text style={styles.dividerText}>ou</Text><View style={styles.line} /></View>
+      <AppButton label={isGoogleAvailable ? 'S’inscrire avec Google' : 'Google indisponible dans ce client'} variant="ghost" loading={googleLoading} disabled={loading || !isGoogleAvailable} icon={<Ionicons name="logo-google" size={19} color="#4285F4" />} onPress={() => void handleGoogleSignup()} />
+      <View style={styles.footer}><Text style={styles.footerText}>Déjà inscrit ? </Text><Pressable accessibilityRole="button" onPress={() => router.replace('/auth/login')}><Text style={styles.link}>Se connecter</Text></Pressable></View>
+    </AuthShell>
   );
 }
+
+const styles = StyleSheet.create({
+  form: { gap: spacing.md },
+  strength: { marginTop: -spacing.xs, gap: 5 },
+  strengthTrack: { height: 5, overflow: 'hidden', borderRadius: radius.pill, backgroundColor: colors.border },
+  strengthFill: { height: '100%', borderRadius: radius.pill },
+  strengthLabel: { color: colors.textMuted, fontFamily: typography.regular, fontSize: 11 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  line: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.textMuted, fontFamily: typography.regular, fontSize: 12 },
+  footer: { flexDirection: 'row', justifyContent: 'center', paddingBottom: spacing.lg },
+  footerText: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 14 },
+  link: { color: colors.primary, fontFamily: typography.semiBold, fontSize: 14 },
+});

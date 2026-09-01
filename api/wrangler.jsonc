@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "menucity-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "vars": {
+    "ALLOWED_ORIGINS": "http://localhost:8081,http://localhost:19006",
+    "CLERK_AUTHORIZED_PARTIES": "menucity://,http://localhost:8081,http://localhost:19006"
+  },
+  "env": {
+    "development": {
+      "name": "menucity-api-development",
+      "vars": {
+        "ALLOWED_ORIGINS": "http://localhost:8081,http://localhost:19006",
+        "CLERK_AUTHORIZED_PARTIES": "menucity://,http://localhost:8081,http://localhost:19006"
+      }
+    },
+    "production": {
+      "name": "menucity-api",
+      "vars": {
+        "ALLOWED_ORIGINS": "https://menucity.app",
+        "CLERK_AUTHORIZED_PARTIES": "menucity://,https://menucity.app"
+      }
+    }
+  }
+}

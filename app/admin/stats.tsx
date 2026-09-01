@@ -1,245 +1,78 @@
-// app/admin/statistiques.tsx
-import React, { useEffect, useMemo } from "react";
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
-import { useAuth } from "../../providers/AuthProvider";
-import { useData } from "../../providers/DataProvider";
-import { useTheme } from "../../styles/theme";
-import Icon from "../../components/Icon";
-import Animated, { FadeInUp, FadeInRight } from "react-native-reanimated";
+import { useRouter } from 'expo-router';
+import { useEffect, useMemo } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import AppHeader from '../../components/ui/AppHeader';
+import SectionHeader from '../../components/ui/SectionHeader';
+import StateView from '../../components/ui/StateView';
+import { useAuth } from '../../providers/AuthProvider';
+import { useData } from '../../providers/DataProvider';
+import { colors, layout, radius, spacing, typography } from '../../styles/theme';
+
+const summaryEntering = FadeInUp.duration(220).reduceMotion(ReduceMotion.System);
+const rankingAnimations = [0, 1, 2, 3, 4, 5].map((index) => FadeInUp.duration(190).delay(index * 32).reduceMotion(ReduceMotion.System));
 
 export default function AdminStatsScreen() {
   const router = useRouter();
   const { isAuthReady, user } = useAuth();
   const { restaurants } = useData();
-  const { colors, spacing, radius, typography } = useTheme();
 
-  // Securite : acces admin uniquement
   useEffect(() => {
-    if (!isAuthReady) return;
-    if (!user || user.role !== "admin") {
-      router.replace("/home");
-    }
-  }, [isAuthReady, router, user]);
+    if (isAuthReady && user?.role !== 'admin') router.replace('/home');
+  }, [isAuthReady, router, user?.role]);
 
   const stats = useMemo(() => {
-    const totalRestaurants = restaurants.length;
-
-    const totalMenus = restaurants.reduce(
-      (sum, r) => sum + (r.menu?.length || 0),
-      0
-    );
-
-    const prixMoyens = restaurants
-      .map((r) => parseFloat(r.prixMoyen) || 0)
-      .filter((x) => x > 0);
-
-    const prixMoyenGlobal =
-      prixMoyens.length > 0
-        ? (prixMoyens.reduce((a, b) => a + b, 0) / prixMoyens.length).toFixed(2)
-        : "-";
-
-    const restaurantsParNote = [...restaurants].sort(
-      (a, b) => (b.note || 0) - (a.note || 0)
-    );
-
-    const meilleur = restaurantsParNote[0] || null;
-    const pire = restaurantsParNote[restaurantsParNote.length - 1] || null;
-
-    return {
-      totalRestaurants,
-      totalMenus,
-      prixMoyenGlobal,
-      meilleur,
-      pire,
-    };
+    const ranked = [...restaurants].sort((a, b) => b.note - a.note);
+    return { menuItems: restaurants.reduce((sum, restaurant) => sum + (restaurant.menu?.length || 0), 0), ranked };
   }, [restaurants]);
 
-  if (!isAuthReady || !user) {
-    return null;
-  }
+  if (!isAuthReady || user?.role !== 'admin') return <SafeAreaView style={styles.safe}><StateView title="Vérification de l’accès…" loading /></SafeAreaView>;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: spacing.lg, paddingBottom: 80 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.xl }}>
-        <TouchableOpacity onPress={() => router.replace("/admin")}>
-          <Icon name="arrow-back" size={22} color={colors.textLight} />
-        </TouchableOpacity>
-        <Text
-          style={{
-            flex: 1,
-            textAlign: "center",
-            fontFamily: typography.bold,
-            fontSize: 26,
-            color: colors.text,
-          }}
-        >
-          Statistiques avancees
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <SectionTitle icon="stats-chart" title="Indicateurs cles" />
-
-      <Animated.View entering={FadeInUp.delay(100)}>
-        <StatCard label="Nombre total de restaurants" value={stats.totalRestaurants} color="#ff6b6b" />
-        <StatCard label="Nombre total de plats" value={stats.totalMenus} color="#4dabf7" />
-        <StatCard label="Prix moyen global" value={`${stats.prixMoyenGlobal} $`} color="#51cf66" />
-      </Animated.View>
-
-      <View style={{ height: spacing.xl }} />
-
-      <SectionTitle icon="trophy" title="Meilleur restaurant" />
-      {stats.meilleur ? (
-        <Animated.View entering={FadeInRight.delay(100)}>
-          <HighlightCard
-            title={stats.meilleur.nom}
-            subtitle={`Note : ${stats.meilleur.note}`}
-            color="#ffd43b"
-          />
-        </Animated.View>
-      ) : null}
-
-      <View style={{ height: spacing.xl }} />
-
-      <SectionTitle icon="sad" title="Restaurant le moins note" />
-      {stats.pire ? (
-        <Animated.View entering={FadeInRight.delay(200)}>
-          <HighlightCard
-            title={stats.pire.nom}
-            subtitle={`Note : ${stats.pire.note}`}
-            color="#ff8787"
-          />
-        </Animated.View>
-      ) : null}
-
-      <View style={{ height: spacing.xl }} />
-
-      <SectionTitle icon="bar-chart" title="Distribution des notes" />
-
-      {restaurants.map((r, idx) => (
-        <Animated.View
-          key={idx}
-          entering={FadeInUp.delay(idx * 60)}
-          style={{ marginBottom: spacing.md }}
-        >
-          <ScoreBar restaurant={r} />
-        </Animated.View>
-      ))}
-
-      <View style={{ height: spacing.xxl }} />
-    </ScrollView>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.page}>
+          <AppHeader title="Statistiques" subtitle="Lecture synthétique du catalogue local." onBack={() => router.replace('/admin')} />
+          <Animated.View entering={summaryEntering} style={styles.summary}>
+            <View style={styles.summaryItem}><Text style={styles.summaryValue}>{restaurants.length}</Text><Text style={styles.summaryLabel}>Restaurants</Text></View>
+            <View style={styles.verticalDivider} />
+            <View style={styles.summaryItem}><Text style={styles.summaryValue}>{stats.menuItems}</Text><Text style={styles.summaryLabel}>Plats</Text></View>
+            <View style={styles.verticalDivider} />
+            <View style={styles.summaryItem}><Text style={styles.summaryValue}>{restaurants.length ? (restaurants.reduce((sum, restaurant) => sum + restaurant.note, 0) / restaurants.length).toFixed(1) : '—'}</Text><Text style={styles.summaryLabel}>Note moyenne</Text></View>
+          </Animated.View>
+          <View style={styles.section}>
+            <SectionHeader title="Classement par note" />
+            <View style={styles.ranking}>
+              {stats.ranked.map((restaurant, index) => {
+                const width = `${Math.max(0, Math.min(100, restaurant.note / 5 * 100))}%` as `${number}%`;
+                return <Animated.View key={restaurant.id} entering={rankingAnimations[Math.min(index, 5)]} style={[styles.rankRow, index < stats.ranked.length - 1 && styles.divider]}><View style={styles.rankTop}><Text style={styles.rankName}>{index + 1}. {restaurant.nom}</Text><Text style={styles.rankScore}>{restaurant.note.toFixed(1)}/5</Text></View><View style={styles.track}><View style={[styles.fill, { width }]} /></View></Animated.View>;
+              })}
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-function SectionTitle({ icon, title }: any) {
-  const { typography, spacing, colors } = useTheme();
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.lg }}>
-      <Icon name={icon} size={22} color={colors.text} />
-      <Text
-        style={{
-          marginLeft: spacing.md,
-          fontFamily: typography.bold,
-          fontSize: 20,
-          color: colors.text,
-        }}
-      >
-        {title}
-      </Text>
-    </View>
-  );
-}
-
-function StatCard({ label, value, color }: any) {
-  const { colors, spacing, radius, typography } = useTheme();
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        padding: spacing.lg,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        marginBottom: spacing.md,
-      }}
-    >
-      <Text style={{ fontFamily: typography.regular, color: colors.textLight }}>
-        {label}
-      </Text>
-      <Text
-        style={{
-          fontFamily: typography.bold,
-          fontSize: 28,
-          marginTop: 4,
-          color,
-        }}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function HighlightCard({ title, subtitle, color }: any) {
-  const { colors, spacing, radius, typography } = useTheme();
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        padding: spacing.lg,
-        borderRadius: radius.xl,
-        borderWidth: 2,
-        borderColor: color,
-      }}
-    >
-      <Text style={{ fontFamily: typography.bold, fontSize: 20, marginBottom: 6 }}>
-        {title}
-      </Text>
-      <Text style={{ fontFamily: typography.regular, color: colors.textLight }}>
-        {subtitle}
-      </Text>
-    </View>
-  );
-}
-
-function ScoreBar({ restaurant }: any) {
-  const { colors, radius, typography } = useTheme();
-  const note = restaurant.note || 0;
-  const width = Math.min((note / 5) * 100, 100);
-
-  return (
-    <View>
-      <Text
-        style={{
-          fontFamily: typography.semiBold,
-          color: colors.text,
-          marginBottom: 4,
-        }}
-      >
-        {restaurant.nom} - {note}/5
-      </Text>
-
-      <View
-        style={{
-          height: 10,
-          backgroundColor: colors.border,
-          borderRadius: radius.pill,
-          overflow: "hidden",
-        }}
-      >
-        <View
-          style={{
-            height: "100%",
-            width: `${width}%`,
-            backgroundColor: note >= 4 ? "#51cf66" : note >= 3 ? "#fcc419" : "#ff6b6b",
-          }}
-        />
-      </View>
-    </View>
-  );
-}
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: spacing.xl },
+  page: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: layout.screenPadding, gap: spacing.lg },
+  summary: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  summaryItem: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.xs },
+  summaryValue: { color: colors.primary, fontFamily: typography.bold, fontSize: 24 },
+  summaryLabel: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 11, textAlign: 'center', marginTop: 4 },
+  verticalDivider: { width: 1, backgroundColor: colors.border },
+  section: { gap: spacing.md },
+  ranking: { paddingHorizontal: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  rankRow: { paddingVertical: spacing.md, gap: spacing.xs },
+  divider: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  rankTop: { flexDirection: 'row', gap: spacing.sm },
+  rankName: { flex: 1, color: colors.text, fontFamily: typography.semiBold, fontSize: 13 },
+  rankScore: { color: colors.primary, fontFamily: typography.bold, fontSize: 12 },
+  track: { height: 7, overflow: 'hidden', borderRadius: radius.pill, backgroundColor: colors.backgroundAlt },
+  fill: { height: '100%', borderRadius: radius.pill, backgroundColor: colors.primary },
+});

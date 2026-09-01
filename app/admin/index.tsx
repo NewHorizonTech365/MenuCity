@@ -1,448 +1,133 @@
-// app/admin/index.tsx
-import React, { useEffect, useMemo } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
-import { useAuth } from "../../providers/AuthProvider";
-import { useTheme } from "../../styles/theme";
-import { useData } from "../../providers/DataProvider";
-import Icon from "../../components/Icon";
-import Animated, {
-  FadeInUp,
-  FadeInDown,
-  FadeInRight,
-  ZoomIn,
-} from "react-native-reanimated";
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useMemo } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import AppButton from '../../components/ui/AppButton';
+import AppHeader from '../../components/ui/AppHeader';
+import PressableScale from '../../components/ui/PressableScale';
+import SectionHeader from '../../components/ui/SectionHeader';
+import StateView from '../../components/ui/StateView';
+import { useAuth } from '../../providers/AuthProvider';
+import { useData } from '../../providers/DataProvider';
+import { colors, layout, radius, spacing, typography } from '../../styles/theme';
+
+interface MetricCardProps { icon: keyof typeof Ionicons.glyphMap; label: string; value: number; index: number; tone?: 'primary' | 'success' | 'warning' }
+
+function MetricCard({ icon, label, value, index, tone = 'primary' }: MetricCardProps) {
+  const color = tone === 'success' ? colors.success : tone === 'warning' ? colors.warning : colors.primary;
+  return (
+    <Animated.View entering={FadeInUp.duration(200).delay(index * 35).reduceMotion(ReduceMotion.System)} style={styles.metricCard}>
+      <View style={[styles.metricIcon, { backgroundColor: `${color}16` }]}><Ionicons name={icon} size={21} color={color} /></View>
+      <Text style={[styles.metricValue, { color }]}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </Animated.View>
+  );
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, isAuthReady, isAuthenticated } = useAuth();
+  const { user, isAuthReady, isAuthenticated, isDevelopmentSession } = useAuth();
   const { restaurants } = useData();
-  const { colors, spacing, radius, typography } = useTheme();
 
-  // Sécurité admin
   useEffect(() => {
-    if (!isAuthReady) return;
-    if (!isAuthenticated || user?.role !== "admin") {
-      router.replace("/home");
-    }
-  }, [isAuthReady, isAuthenticated, router, user]);
+    if (isAuthReady && (!isAuthenticated || user?.role !== 'admin')) router.replace('/home');
+  }, [isAuthReady, isAuthenticated, router, user?.role]);
 
-  // -------------------------------------------
-  // 📊 STATISTIQUES CALCULÉES
-  // -------------------------------------------
   const stats = useMemo(() => {
-    const totalRestaurants = restaurants.length;
-
-    const dishes = restaurants.flatMap((r) => r.menu || []);
-    const totalDishes = dishes.length;
-
-    // Répartition des cuisines
-    const cuisineMap: Record<string, number> = {};
-    restaurants.forEach((r) => {
-      const c = (r.cuisine || "Autre").toLowerCase();
-      cuisineMap[c] = (cuisineMap[c] || 0) + 1;
-    });
-
-    const cuisineDistribution = Object.entries(cuisineMap)
-      .map(([name, count]) => ({
-        name,
-        count,
-        percent: Math.round((count / totalRestaurants) * 100),
-      }))
-      .sort((a, b) => b.count - a.count);
-
-    // Top restaurants
-    const topRestaurants = [...restaurants]
-      .sort((a, b) => (b.note || 0) - (a.note || 0))
-      .slice(0, 5);
-
-    // Menus les plus variés
-    const mostVaried = [...restaurants]
-      .map((r) => ({
-        ...r,
-        count: r.menu?.length || 0,
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 3);
-
-    // Photos total
-    const totalPhotos = restaurants.reduce(
-      (sum, r) => sum + (r.photos?.length || 0),
-      0
-    );
-
-    const restaurantsWithoutMenu = restaurants.filter(
-      (r) => !r.menu || r.menu.length === 0
-    ).length;
-
-    const dishesWithoutImage = dishes.filter(
-      (d) => !d.photosMenu || d.photosMenu.length === 0
-    ).length;
-
+    const menuItems = restaurants.flatMap((restaurant) => restaurant.menu || []);
+    const cuisines = new Map<string, number>();
+    restaurants.forEach((restaurant) => cuisines.set(restaurant.cuisine || 'Autre', (cuisines.get(restaurant.cuisine || 'Autre') || 0) + 1));
     return {
-      totalRestaurants,
-      totalDishes,
-      cuisineDistribution,
-      topRestaurants,
-      mostVaried,
-      totalPhotos,
-      restaurantsWithoutMenu,
-      dishesWithoutImage,
+      restaurants: restaurants.length,
+      dishes: menuItems.length,
+      photos: restaurants.reduce((total, restaurant) => total + restaurant.photos.length, 0),
+      withoutMenu: restaurants.filter((restaurant) => !restaurant.menu?.length).length,
+      cuisines: [...cuisines.entries()].sort((left, right) => right[1] - left[1]).slice(0, 5),
     };
   }, [restaurants]);
 
-  if (!isAuthReady || user === null) {
-    return null;
+  if (!isAuthReady || !user || user.role !== 'admin') {
+    return <SafeAreaView style={styles.safe}><StateView title="Vérification de l’accès…" loading /></SafeAreaView>;
   }
 
-  // Sortir du mode admin
-  const exitAdmin = () => {
-    router.replace("/home");
-  };
-
-  // -----------------------------------------------------------
-  // 🧨 UI DASHBOARD COMPLET
-  // -----------------------------------------------------------
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}
-    >
-      {/* TITLE */}
-      <Animated.Text
-        entering={FadeInDown.duration(500)}
-        style={{
-          fontFamily: typography.bold,
-          fontSize: 32,
-          color: colors.text,
-          marginTop: spacing.lg,
-        }}
-      >
-        Tableau de Bord Admin
-      </Animated.Text>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.page}>
+          <Animated.View entering={FadeInUp.duration(200).reduceMotion(ReduceMotion.System)}><AppHeader title="Administration" subtitle={`Bonjour ${user.nom}. Pilotez le catalogue MenuCity.`} onBack={() => router.replace('/profile')} /></Animated.View>
+          {isDevelopmentSession ? (
+            <Animated.View entering={FadeInUp.duration(210).delay(35).reduceMotion(ReduceMotion.System)} style={styles.devBanner}>
+              <Ionicons name="construct-outline" size={21} color={colors.warning} />
+              <View style={styles.devCopy}><Text style={styles.devTitle}>Administration locale de développement</Text><Text style={styles.devText}>Les changements servent aux tests Expo Go et ne modifient ni Neon ni Cloudflare.</Text></View>
+            </Animated.View>
+          ) : null}
 
-      <Animated.Text
-        entering={FadeInDown.delay(100)}
-        style={{
-          fontFamily: typography.regular,
-          fontSize: 16,
-          color: colors.textLight,
-          marginBottom: spacing.xl,
-        }}
-      >
-        Bienvenue {user?.nom}. Gère et surveille toute l’application.
-      </Animated.Text>
+          <View style={styles.section}><SectionHeader eyebrow="Vue d’ensemble" title="Le catalogue en un coup d’œil" /><View style={styles.metrics}>
+            <MetricCard icon="restaurant-outline" label="Restaurants" value={stats.restaurants} index={0} />
+            <MetricCard icon="fast-food-outline" label="Plats" value={stats.dishes} index={1} tone="success" />
+            <MetricCard icon="images-outline" label="Photos" value={stats.photos} index={2} />
+            <MetricCard icon="alert-circle-outline" label="Sans menu" value={stats.withoutMenu} index={3} tone="warning" />
+          </View></View>
 
-      {/* ===================== PARTIE 1 : STATS GLOBALES ===================== */}
-      <SectionTitle icon="stats-chart" title="Vue d’ensemble" />
+          <View style={styles.section}>
+            <SectionHeader title="Actions rapides" />
+            <PressableScale accessibilityRole="button" accessibilityLabel="Gérer les restaurants" haptic="selection" onPress={() => router.push('/admin/restaurantsAdmin')} style={styles.actionCard}>
+              <View style={styles.actionIcon}><Ionicons name="restaurant-outline" size={23} color={colors.primary} /></View>
+              <View style={styles.actionCopy}><Text style={styles.actionTitle}>Gérer les restaurants</Text><Text style={styles.actionText}>Créer, modifier, archiver et gérer les menus.</Text></View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </PressableScale>
+            <PressableScale accessibilityRole="button" accessibilityLabel="Consulter les statistiques" haptic="selection" onPress={() => router.push('/admin/stats')} style={styles.actionCard}>
+              <View style={styles.actionIcon}><Ionicons name="stats-chart-outline" size={23} color={colors.primary} /></View>
+              <View style={styles.actionCopy}><Text style={styles.actionTitle}>Consulter les statistiques</Text><Text style={styles.actionText}>Notes, menus et répartition du catalogue.</Text></View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </PressableScale>
+          </View>
 
-      <Animated.View entering={FadeInUp} style={{ gap: spacing.md }}>
-        <BigStat label="Restaurants" value={stats.totalRestaurants} color="#FF6A00" />
-        <BigStat label="Plats" value={stats.totalDishes} color="#6A11CB" />
-        <BigStat label="Photos" value={stats.totalPhotos} color="#38EF7D" />
-      </Animated.View>
+          <View style={styles.section}>
+            <SectionHeader title="Cuisines représentées" />
+            <View style={styles.cuisineCard}>
+              {stats.cuisines.length ? stats.cuisines.map(([name, count], index) => {
+                const percent = stats.restaurants ? Math.round((count / stats.restaurants) * 100) : 0;
+                return <View key={name} style={[styles.cuisineRow, index < stats.cuisines.length - 1 && styles.divider]}><View style={styles.cuisineCopy}><Text style={styles.cuisineName}>{name}</Text><Text style={styles.cuisineCount}>{count} restaurant{count > 1 ? 's' : ''}</Text></View><Text style={styles.percent}>{percent}%</Text></View>;
+              }) : <Text style={styles.emptyText}>Aucune donnée disponible.</Text>}
+            </View>
+          </View>
 
-      <View style={{ height: spacing.xl }} />
-
-      {/* ===================== PARTIE 2 : RÉPARTITION CUISINES ===================== */}
-      <SectionTitle icon="pie-chart" title="Répartition des cuisines" />
-
-      {stats.cuisineDistribution.map((c, idx) => (
-        <Animated.View
-          entering={FadeInRight.delay(idx * 80)}
-          key={idx}
-          style={{ marginBottom: spacing.md }}
-        >
-          <CuisineBar item={c} />
-        </Animated.View>
-      ))}
-
-      <View style={{ height: spacing.xl }} />
-
-      {/* ===================== PARTIE 3 : TOP RESTAURANTS ===================== */}
-      <SectionTitle icon="trophy" title="Top Restaurants" />
-
-      {stats.topRestaurants.map((r, idx) => (
-        <Animated.View key={idx} entering={FadeInUp.delay(idx * 80)}>
-          <TopRestaurantCard restaurant={r} rank={idx + 1} />
-        </Animated.View>
-      ))}
-
-      <View style={{ height: spacing.xl }} />
-
-      {/* ===================== PARTIE 4 : MENUS VARIÉS ===================== */}
-      <SectionTitle icon="fast-food" title="Menus les plus variés" />
-
-      {stats.mostVaried.map((r, idx) => (
-        <Animated.View key={idx} entering={FadeInUp.delay(idx * 100)}>
-          <VariedMenuCard restaurant={r} />
-        </Animated.View>
-      ))}
-
-      <View style={{ height: spacing.xl }} />
-
-      {/* ===================== PARTIE 5 : ALERTES ===================== */}
-      <SectionTitle icon="alert-circle" title="Alertes importantes" />
-
-      <AlertCard
-        label="Restaurants sans menu"
-        value={stats.restaurantsWithoutMenu}
-        color="#FF4D4D"
-      />
-
-      <AlertCard
-        label="Plats sans images"
-        value={stats.dishesWithoutImage}
-        color="#FF8800"
-      />
-
-      <View style={{ height: spacing.xl }} />
-
-      {/* ===================== ACTIONS / NAVIGATION ===================== */}
-      <SectionTitle icon="grid" title="Navigation rapide" />
-
-      <AdminButton
-        icon="restaurant"
-        label="Gérer les restaurants"
-        onPress={() => router.replace("/admin/restaurantsAdmin")}
-      />
-
-      <AdminButton
-        icon="stats-chart"
-        label="Statistiques avancées"
-        onPress={() => router.push("/admin/stats")}
-      />
-
-      <View style={{ height: spacing.xxl }} />
-
-      {/* Logout */}
-      <AdminButton
-        icon="lock-closed"
-        label="Quitter le mode admin"
-        color={colors.primary}
-        textColor="#fff"
-        onPress={exitAdmin}
-      />
-    </ScrollView>
+          <AppButton label="Quitter l’administration" variant="ghost" icon={<Ionicons name="exit-outline" size={19} color={colors.text} />} onPress={() => router.replace('/home')} />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-/* ============================================================================
-    COMPONENTS SIMPLES & ÉLÉGANTS
-============================================================================ */
-
-function SectionTitle({ icon, title }: any) {
-  const { colors, spacing, typography } = useTheme();
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: spacing.md,
-      }}
-    >
-      <Icon name={icon} size={22} color={colors.text} />
-      <Text
-        style={{
-          marginLeft: spacing.md,
-          fontFamily: typography.bold,
-          fontSize: 20,
-          color: colors.text,
-        }}
-      >
-        {title}
-      </Text>
-    </View>
-  );
-}
-
-function BigStat({ value, label, color }: any) {
-  const { colors, spacing, radius, typography } = useTheme();
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        padding: spacing.lg,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-      }}
-    >
-      <Text
-        style={{
-          fontFamily: typography.bold,
-          fontSize: 34,
-          color,
-        }}
-      >
-        {value}
-      </Text>
-      <Text
-        style={{
-          fontFamily: typography.regular,
-          color: colors.textLight,
-          marginTop: 4,
-        }}
-      >
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function CuisineBar({ item }: any) {
-  const { colors, spacing, radius, typography } = useTheme();
-  return (
-    <View>
-      <Text
-        style={{
-          fontFamily: typography.semiBold,
-          color: colors.text,
-          fontSize: 15,
-          marginBottom: 6,
-        }}
-      >
-        {item.name} • {item.count} restaurants ({item.percent}%)
-      </Text>
-
-      <View
-        style={{
-          height: 10,
-          backgroundColor: colors.border,
-          borderRadius: radius.pill,
-          overflow: "hidden",
-        }}
-      >
-        <View
-          style={{
-            height: "100%",
-            width: `${item.percent}%`,
-            backgroundColor: colors.primary,
-          }}
-        />
-      </View>
-    </View>
-  );
-}
-
-function TopRestaurantCard({ restaurant, rank }: any) {
-  const { colors, spacing, radius, typography } = useTheme();
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        padding: spacing.md,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        marginBottom: spacing.sm,
-      }}
-    >
-      <Text
-        style={{
-          fontFamily: typography.bold,
-          fontSize: 16,
-        }}
-      >
-        #{rank} — {restaurant.nom}
-      </Text>
-      <Text
-        style={{
-          fontFamily: typography.regular,
-          color: colors.textLight,
-        }}
-      >
-        Note : {restaurant.note}
-      </Text>
-    </View>
-  );
-}
-
-function VariedMenuCard({ restaurant }: any) {
-  const { colors, spacing, radius, typography } = useTheme();
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        padding: spacing.md,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        marginBottom: spacing.sm,
-      }}
-    >
-      <Text style={{ fontFamily: typography.bold, fontSize: 16 }}>
-        {restaurant.nom}
-      </Text>
-      <Text
-        style={{
-          fontFamily: typography.regular,
-          color: colors.textLight,
-        }}
-      >
-        {restaurant.count} plats au menu
-      </Text>
-    </View>
-  );
-}
-
-function AlertCard({ label, value, color }: any) {
-  const { colors, spacing, radius, typography } = useTheme();
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        padding: spacing.md,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        marginBottom: spacing.md,
-      }}
-    >
-      <Text style={{ fontFamily: typography.semiBold }}>{label}</Text>
-      <Text
-        style={{
-          fontFamily: typography.bold,
-          fontSize: 22,
-          color,
-          marginTop: 4,
-        }}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function AdminButton({ label, icon, onPress, color, textColor }: any) {
-  const { colors, spacing, radius, typography } = useTheme();
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      style={{
-        backgroundColor: color || colors.card,
-        padding: spacing.lg,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: spacing.md,
-      }}
-    >
-      <Icon name={icon} size={22} color={textColor || colors.text} />
-      <Text
-        style={{
-          marginLeft: spacing.md,
-          fontFamily: typography.semiBold,
-          color: textColor || colors.text,
-          fontSize: 16,
-        }}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: spacing.xl },
+  page: { width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center', paddingHorizontal: layout.screenPadding, gap: spacing.lg },
+  devBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: '#E9D29E', backgroundColor: '#FFF6DC' },
+  devCopy: { flex: 1 },
+  devTitle: { color: colors.warning, fontFamily: typography.bold, fontSize: 14 },
+  devText: { color: '#805A14', fontFamily: typography.regular, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  section: { gap: spacing.md },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  metricCard: { minWidth: 145, flexGrow: 1, flexBasis: '46%', padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  metricIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  metricValue: { fontFamily: typography.bold, fontSize: 28, marginTop: spacing.sm },
+  metricLabel: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 12, marginTop: 2 },
+  actionCard: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  actionIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  actionCopy: { flex: 1 },
+  actionTitle: { color: colors.text, fontFamily: typography.bold, fontSize: 15 },
+  actionText: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  cuisineCard: { paddingHorizontal: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  cuisineRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center' },
+  divider: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  cuisineCopy: { flex: 1 },
+  cuisineName: { color: colors.text, fontFamily: typography.semiBold, fontSize: 14, textTransform: 'capitalize' },
+  cuisineCount: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 11, marginTop: 2 },
+  percent: { color: colors.primary, fontFamily: typography.bold, fontSize: 14 },
+  emptyText: { color: colors.textSecondary, fontFamily: typography.regular, paddingVertical: spacing.lg, textAlign: 'center' },
+});

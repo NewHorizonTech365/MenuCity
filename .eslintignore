@@ -5,6 +5,8 @@ web-build/
 
 # Ignore node modules
 node_modules/
+api/
+.expo/
 
 # Ignore build artifacts
 *.bundle.js

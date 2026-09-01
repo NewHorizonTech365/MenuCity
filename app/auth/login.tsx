@@ -1,303 +1,103 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Keyboard,
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useAuth } from "../../providers/AuthProvider";
-import Icon from "../../components/Icon";
-import { useTheme } from "../../styles/theme";
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import AuthShell from '../../components/auth/AuthShell';
+import AppButton from '../../components/ui/AppButton';
+import FormField from '../../components/ui/FormField';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import { useAuth } from '../../providers/AuthProvider';
+import { colors, radius, spacing, typography } from '../../styles/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, loginFailures } = useAuth();
-  const { colors, spacing, radius, typography } = useTheme();
-  const scrollRef = useRef<ScrollView>(null);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { login, loginFailures, startDevelopmentSession } = useAuth();
+  const { isGoogleAvailable, signInWithGoogle } = useGoogleAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  useEffect(() => {
-    const onShow = Keyboard.addListener("keyboardDidShow", (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-    });
-    const onHide = Keyboard.addListener("keyboardDidHide", () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, []);
-
-  const scrollToBottom = () => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    });
-  };
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs");
-      return;
-    }
-
+    if (!email.trim() || !password) return Alert.alert('Champs requis', 'Renseignez votre e-mail et votre mot de passe.');
     setLoading(true);
     try {
       const result = await login(email, password);
-      if (!result.ok) {
-        if (result.code === "email_not_confirmed") {
-          router.push({
-            pathname: "/auth/email-confirmation",
-            params: { email: email.trim().toLowerCase() },
-          });
-          return;
-        }
-        Alert.alert("Erreur", result.message || "Identifiants incorrects");
-        return;
-      }
-      // On laisse le guard admin décider la route ensuite.
-      router.replace("/home");
-    } catch (e) {
-      console.error("handleLogin error", e);
-      Alert.alert("Erreur", "Une erreur est survenue lors de la connexion");
+      if (!result.ok) return Alert.alert('Connexion impossible', result.message || 'Vérifiez vos identifiants.');
+      router.replace('/home');
+    } catch {
+      Alert.alert('Connexion impossible', 'Une erreur inattendue est survenue.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await signInWithGoogle();
+      if (!result.ok) return Alert.alert('Connexion Google impossible', result.error || 'Réessayez dans quelques instants.');
+      router.replace('/home');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const enterDevelopmentMode = () => {
+    startDevelopmentSession();
+    router.replace('/admin');
+  };
+
+  const unavailable = loading || googleLoading;
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        contentContainerStyle={{
-          flexGrow: 1,
-          padding: spacing.lg,
-          paddingTop: spacing.xxl,
-          paddingBottom: spacing.xl + keyboardHeight,
-        }}
-      >
-        <TouchableOpacity onPress={() => router.back()}>
-          <Icon name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
+    <AuthShell title="Bon retour parmi nous" subtitle="Connectez-vous pour inviter vos proches et gérer votre espace MenuCity.">
+      <View style={styles.form}>
+        <FormField label="Adresse e-mail" value={email} onChangeText={setEmail} placeholder="vous@exemple.com" autoCapitalize="none" keyboardType="email-address" autoComplete="email" editable={!unavailable} />
+        <FormField label="Mot de passe" value={password} onChangeText={setPassword} placeholder="Votre mot de passe" secureTextEntry autoComplete="current-password" editable={!unavailable} />
+        <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/auth/forgot-password', params: { email: email.trim().toLowerCase() } })} style={styles.forgot}>
+          <Text style={styles.link}>Mot de passe oublié ?</Text>
+        </Pressable>
+        {loginFailures > 1 ? <Text style={styles.warning}>Plusieurs tentatives ont échoué. Vérifiez vos identifiants avant de réessayer.</Text> : null}
+        <AppButton label="Se connecter" loading={loading} disabled={googleLoading} onPress={() => void handleLogin()} />
+      </View>
 
-        <View
-          style={{
-            width: 120,
-            height: 120,
-            borderRadius: 60,
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.border,
-            justifyContent: "center",
-            alignItems: "center",
-            alignSelf: "center",
-            marginTop: spacing.xl,
-            marginBottom: spacing.xl,
-          }}
-        >
-          <Icon name="restaurant" size={55} color={colors.primary} />
-        </View>
+      <View style={styles.divider}><View style={styles.line} /><Text style={styles.dividerText}>ou</Text><View style={styles.line} /></View>
+      <AppButton label={isGoogleAvailable ? 'Continuer avec Google' : 'Google indisponible dans ce client'} variant="ghost" loading={googleLoading} disabled={loading || !isGoogleAvailable} icon={<Ionicons name="logo-google" size={19} color="#4285F4" />} onPress={() => void handleGoogleLogin()} />
 
-        <Text
-          style={{
-            fontFamily: typography.bold,
-            fontSize: 32,
-            color: colors.text,
-            marginBottom: 10,
-          }}
-        >
-          Bienvenue
-        </Text>
+      {__DEV__ ? (
+        <Pressable accessibilityRole="button" onPress={enterDevelopmentMode} disabled={unavailable} style={({ pressed }) => [styles.devCard, pressed && styles.pressed]}>
+          <View style={styles.devIcon}><Ionicons name="construct-outline" size={20} color={colors.warning} /></View>
+          <View style={styles.devCopy}><Text style={styles.devTitle}>Mode développement administrateur</Text><Text style={styles.devText}>Accès complet avec des données locales uniquement.</Text></View>
+          <Ionicons name="arrow-forward" size={19} color={colors.warning} />
+        </Pressable>
+      ) : null}
 
-        <Text
-          style={{
-            fontFamily: typography.regular,
-            fontSize: 16,
-            color: colors.textLight,
-            marginBottom: spacing.xl,
-          }}
-        >
-          Connectez-vous pour continuer.
-        </Text>
-
-        <View style={{ marginBottom: spacing.md }}>
-          <TextInput
-            placeholder="Adresse e-mail"
-            placeholderTextColor={colors.textLight}
-            style={{
-              height: 54,
-              backgroundColor: colors.card,
-              borderRadius: radius.pill,
-              paddingHorizontal: spacing.lg,
-              borderWidth: 1,
-              borderColor: colors.border,
-              color: colors.text,
-              fontFamily: typography.regular,
-              marginBottom: spacing.md,
-            }}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-
-          <View
-            style={{
-              height: 54,
-              backgroundColor: colors.card,
-              borderRadius: radius.pill,
-              paddingHorizontal: spacing.lg,
-              borderWidth: 1,
-              borderColor: colors.border,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            <TextInput
-              placeholder="Mot de passe"
-              placeholderTextColor={colors.textLight}
-              secureTextEntry={!showPassword}
-              onFocus={scrollToBottom}
-              style={{
-                flex: 1,
-                color: colors.text,
-                fontFamily: typography.regular,
-              }}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword((s) => !s)}>
-              <Icon
-                name={showPassword ? "eye-off" : "eye"}
-                size={20}
-                color={colors.textLight}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          onPress={handleLogin}
-          disabled={loading}
-          style={{
-            backgroundColor: colors.primary,
-            height: 54,
-            borderRadius: radius.pill,
-            justifyContent: "center",
-            alignItems: "center",
-            marginTop: spacing.lg,
-          }}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text
-              style={{
-                color: "#fff",
-                fontFamily: typography.semiBold,
-                fontSize: 18,
-              }}
-            >
-              Se connecter
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() =>
-            router.push({
-              pathname: "/auth/forgot-password",
-              params: { email: email.trim().toLowerCase() },
-            })
-          }
-          style={{ marginTop: spacing.md, alignSelf: "center" }}
-        >
-          <Text
-            style={{
-              fontFamily: typography.regular,
-              color: colors.primary,
-              fontSize: 14,
-              textDecorationLine: "underline",
-            }}
-          >
-            Mot de passe oublie ?
-          </Text>
-        </TouchableOpacity>
-
-        {loginFailures > 1 ? (
-          <Text
-            style={{
-              marginTop: spacing.sm,
-              alignSelf: "center",
-              color: colors.textLight,
-              fontFamily: typography.regular,
-              fontSize: 13,
-              textAlign: "center",
-            }}
-          >
-            Plusieurs echecs detectes ({loginFailures}). Verifiez vos identifiants.
-          </Text>
-        ) : null}
-
-        <TouchableOpacity
-          onPress={() =>
-            Alert.alert(
-              "Bientot disponible",
-              "Connexion Google (phase 2) sera activee apres configuration OAuth."
-            )
-          }
-          style={{
-            marginTop: spacing.lg,
-            height: 52,
-            borderRadius: radius.pill,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.card,
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: typography.semiBold,
-              color: colors.text,
-              fontSize: 15,
-            }}
-          >
-            Continuer avec Google (phase 2)
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => router.push("/auth/register")}
-          style={{ marginTop: spacing.lg, alignSelf: "center" }}
-        >
-          <Text
-            style={{
-              fontFamily: typography.regular,
-              color: colors.primary,
-              fontSize: 15,
-            }}
-          >
-            Pas de compte ? S'inscrire
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Pas encore de compte ? </Text>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/auth/register')}><Text style={styles.link}>S’inscrire</Text></Pressable>
+      </View>
+      <Pressable accessibilityRole="button" onPress={() => router.replace('/home')} style={styles.explore}><Text style={styles.exploreText}>Explorer sans compte</Text></Pressable>
+    </AuthShell>
   );
 }
+
+const styles = StyleSheet.create({
+  form: { gap: spacing.md },
+  forgot: { alignSelf: 'flex-end', paddingVertical: 2 },
+  link: { color: colors.primary, fontFamily: typography.semiBold, fontSize: 14 },
+  warning: { color: colors.warning, fontFamily: typography.regular, fontSize: 12, lineHeight: 18, padding: spacing.sm, borderRadius: radius.md, backgroundColor: '#FFF6DC' },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  line: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.textMuted, fontFamily: typography.regular, fontSize: 12 },
+  devCard: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: '#E9D29E', backgroundColor: '#FFF6DC' },
+  devIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FCEAB9' },
+  devCopy: { flex: 1 },
+  devTitle: { color: colors.warning, fontFamily: typography.bold, fontSize: 13 },
+  devText: { color: '#805A14', fontFamily: typography.regular, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  footer: { flexDirection: 'row', justifyContent: 'center' },
+  footerText: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 14 },
+  explore: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md },
+  exploreText: { color: colors.textSecondary, fontFamily: typography.semiBold, fontSize: 14 },
+  pressed: { opacity: 0.72 },
+});

@@ -1,435 +1,376 @@
-import { useCallback, useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { isClerkAPIResponseError, useAuth as useClerkAuth, useUser } from "@clerk/expo";
+import { useSignIn, useSignUp } from "@clerk/expo/legacy";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { apiRequest, isApiConfigured, type TokenGetter } from "../lib/api";
+import {
+  checkRateLimit,
+  isCommonPassword,
+  logAuthEvent,
+  resetUserRateLimit,
+  validateEmailFormat,
+  validatePhoneFormat,
+} from "../lib/authSecurity";
+import { validatePassword } from "../lib/passwordValidator";
+import type { ProfileDto } from "../types/Api";
 import type { User } from "../types/User";
 
 type Role = "user" | "admin";
 type AuthErrorCode =
   | "invalid_credentials"
+  | "account_not_found"
   | "email_not_confirmed"
+  | "additional_verification_required"
+  | "configuration_error"
   | "network_error"
   | "timeout"
   | "rate_limited"
+  | "weak_password"
+  | "invalid_email"
+  | "invalid_phone"
+  | "email_already_exists"
+  | "invalid_code"
   | "unknown";
+
 export type AuthResult = {
   ok: boolean;
   message?: string;
   requiresEmailConfirmation?: boolean;
   code?: AuthErrorCode;
 };
-
-const AUTH_TIMEOUT_MS = 15000;
-
-const withTimeout = async <T>(promise: Promise<T>, message: string): Promise<T> => {
-  return await Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(message)), AUTH_TIMEOUT_MS);
-    }),
-  ]);
+const clerkMessage = (raw: unknown) => {
+  if (isClerkAPIResponseError(raw)) {
+    return raw.errors[0]?.longMessage || raw.errors[0]?.message || "L’authentification a échoué.";
+  }
+  return raw instanceof Error ? raw.message : "L’authentification a échoué.";
 };
 
-const toRole = (value: unknown): Role => (value === "admin" ? "admin" : "user");
-const logAuthEvent = (
-  event: string,
-  payload: Record<string, unknown> = {}
-) => {
-  console.log(
-    JSON.stringify({
-      scope: "auth",
-      event,
-      timestamp: new Date().toISOString(),
-      ...payload,
-    })
-  );
-};
 const normalizeError = (raw: unknown): { code: AuthErrorCode; message: string } => {
-  const message =
-    typeof raw === "string"
-      ? raw
-      : typeof (raw as any)?.message === "string"
-        ? (raw as any).message
-        : "Une erreur inconnue est survenue.";
+  const message = clerkMessage(raw);
   const lower = message.toLowerCase();
+  const clerkCode = isClerkAPIResponseError(raw) ? raw.errors[0]?.code || "" : "";
 
-  if (lower.includes("timed out") || lower.includes("trop longue")) {
+  if (clerkCode === "form_identifier_not_found") {
     return {
-      code: "timeout",
-      message: "Connexion trop longue. Verifiez votre connexion Internet puis reessayez.",
+      code: "account_not_found",
+      message: "Aucun compte Clerk ne correspond a cet e-mail. Les anciens comptes Supabase ne sont pas migres : creez un nouveau compte.",
     };
   }
-  if (lower.includes("invalid login credentials")) {
+  if (clerkCode === "form_password_incorrect") {
+    return { code: "invalid_credentials", message: "E-mail ou mot de passe incorrect." };
+  }
+  if (clerkCode === "form_identifier_exists") {
+    return { code: "email_already_exists", message: "Cet e-mail est deja enregistre. Essayez de vous connecter." };
+  }
+  if (clerkCode.includes("verification_failed") || clerkCode.includes("verification_expired")) {
+    return { code: "invalid_code", message: "Le code est incorrect ou a expire." };
+  }
+  if (clerkCode.includes("password") && clerkCode !== "form_password_incorrect") {
+    return { code: "weak_password", message };
+  }
+  if (clerkCode.includes("captcha")) {
     return {
-      code: "invalid_credentials",
-      message: "Email ou mot de passe incorrect.",
+      code: "configuration_error",
+      message: "La verification anti-robot Clerk a echoue. Rechargez l'application puis reessayez.",
     };
   }
-  if (lower.includes("email not confirmed")) {
-    return {
-      code: "email_not_confirmed",
-      message: "Votre email n'est pas confirme. Verifiez votre boite mail.",
-    };
+  if (lower.includes("password") && (lower.includes("incorrect") || lower.includes("invalid"))) {
+    return { code: "invalid_credentials", message: "Email ou mot de passe incorrect." };
   }
-  if (lower.includes("rate limit")) {
-    return {
-      code: "rate_limited",
-      message: "Trop de tentatives. Attendez quelques minutes puis reessayez.",
-    };
+  if (lower.includes("already") || lower.includes("taken")) {
+    return { code: "email_already_exists", message: "Cet email est déjà enregistré." };
   }
-  if (lower.includes("network request failed") || lower.includes("fetch failed")) {
-    return {
-      code: "network_error",
-      message: "Reseau indisponible. Verifiez Internet puis reessayez.",
-    };
+  if (lower.includes("code") && (lower.includes("incorrect") || lower.includes("invalid") || lower.includes("expired"))) {
+    return { code: "invalid_code", message: "Le code est incorrect ou a expiré." };
   }
-
+  if (lower.includes("network") || lower.includes("fetch")) {
+    return { code: "network_error", message: "Réseau indisponible. Vérifiez Internet puis réessayez." };
+  }
+  if (lower.includes("rate") || lower.includes("too many")) {
+    return { code: "rate_limited", message: "Trop de tentatives. Réessayez dans quelques minutes." };
+  }
   return { code: "unknown", message };
 };
 
+const profileToUser = (
+  profile: ProfileDto | null,
+  clerkUser: NonNullable<ReturnType<typeof useUser>["user"]>,
+): User => ({
+  id: clerkUser.id,
+  nom: clerkUser.fullName || clerkUser.firstName || "",
+  email: clerkUser.primaryEmailAddress?.emailAddress || "",
+  telephone: profile?.phone || String(clerkUser.unsafeMetadata?.phone || ""),
+  role: profile?.role || "user",
+  photoProfil: profile?.avatarUrl || clerkUser.imageUrl,
+  photoCouverture: profile?.coverUrl || undefined,
+  restaurants: profile?.restaurantsVisited || 0,
+  points: profile?.points || 0,
+  avis: profile?.reviewsCount || 0,
+  cuisinesPreferees: profile?.preferredCuisines || [],
+  dernierVisites: (profile?.recentVisits || []).map((visit) => ({
+    id: visit.id,
+    nom: visit.name,
+    cuisine: visit.cuisine,
+    date: visit.date,
+  })),
+  bio: profile?.bio || "",
+});
+
+const DEVELOPMENT_ADMIN: User = {
+  id: "development-admin",
+  nom: "Administrateur MenuCity",
+  email: "admin.dev@menucity.local",
+  telephone: "+243 000 000 000",
+  role: "admin",
+  restaurants: 0,
+  points: 0,
+  avis: 0,
+  cuisinesPreferees: [],
+  dernierVisites: [],
+  bio: "Session locale de developpement",
+};
+
 export const useAuth = () => {
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  const clerkAuth = useClerkAuth();
+  const clerkAuthRef = useRef(clerkAuth);
+  clerkAuthRef.current = clerkAuth;
+  const clerkUserState = useUser();
+  const signInState = useSignIn();
+  const signUpState = useSignUp();
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [role, setRole] = useState<Role | null>(null);
+  const [developmentUser, setDevelopmentUser] = useState<User | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [loginFailures, setLoginFailures] = useState(0);
 
-  const setSignedOutState = useCallback(() => {
-    setUser(null);
-    setIsAuthenticated(false);
-    setRole(null);
-    setIsAuthReady(true);
+  const getAuthToken: TokenGetter = useCallback(async () => {
+    return (await clerkAuthRef.current.getToken()) || null;
   }, []);
 
-  const loadProfile = useCallback(async (userId: string) => {
+  const loadProfile = useCallback(async () => {
+    if (!clerkAuth.isLoaded || !clerkAuth.isSignedIn || !clerkUserState.user) {
+      setUser(null);
+      setProfileLoading(false);
+      return;
+    }
+
+    setProfileLoading(true);
     try {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-      const metadata = authUser?.user_metadata ?? {};
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (!error && data) {
-        const normalizedUser: User = {
-          id: data.id,
-          nom: data.nom ?? metadata.nom ?? "",
-          email: data.email ?? authUser?.email ?? "",
-          telephone: data.telephone ?? metadata.telephone ?? "",
-          role: toRole(data.role),
-          restaurants: data.restaurants ?? 0,
-          points: data.points ?? 0,
-          avis: data.avis ?? 0,
-          cuisinesPreferees: data.cuisinesPreferees ?? [],
-          dernierVisites: data.dernierVisites ?? [],
-          photoProfil: data.photoProfil ?? metadata.photoProfil,
-          photoCouverture: data.photoCouverture ?? metadata.photoCouverture,
-          bio: data.bio ?? metadata.bio,
-        };
-
-        setUser(normalizedUser);
-        setRole(normalizedUser.role);
-        setIsAuthenticated(true);
-        setIsAuthReady(true);
-        return;
-      }
-
-      if (authUser) {
-        const profileMissing = error?.code === "PGRST116";
-        if (profileMissing) {
-          await supabase.from("profiles").upsert(
-            {
-              id: authUser.id,
-              email: authUser.email ?? "",
-              role: "user",
-            },
-            { onConflict: "id" }
-          );
-        }
-
-        setUser({
-          id: authUser.id,
-          nom: metadata.nom ?? "",
-          email: authUser.email ?? "",
-          telephone: metadata.telephone ?? "",
-          role: "user",
-          restaurants: 0,
-          points: 0,
-          avis: 0,
-          cuisinesPreferees: [],
-          dernierVisites: [],
-          photoProfil: metadata.photoProfil,
-          photoCouverture: metadata.photoCouverture,
-          bio: metadata.bio,
+      let profile = isApiConfigured
+        ? await apiRequest<ProfileDto>("/v1/me", { getToken: getAuthToken })
+        : null;
+      const clerkPhone = String(clerkUserState.user.unsafeMetadata?.phone || "").trim();
+      if (profile && !profile.phone && clerkPhone) {
+        profile = await apiRequest<ProfileDto>("/v1/me", {
+          method: "PATCH",
+          getToken: getAuthToken,
+          body: { phone: clerkPhone },
         });
-        setRole("user");
-        setIsAuthenticated(true);
-        setIsAuthReady(true);
-        return;
       }
-
-      setSignedOutState();
-    } catch {
-      logAuthEvent("load_profile_failed", { userId });
-      setSignedOutState();
+      setUser(profileToUser(profile, clerkUserState.user));
+    } catch (error) {
+      console.warn("Impossible de synchroniser le profil MenuCity", normalizeError(error).code);
+      setUser(profileToUser(null, clerkUserState.user));
+    } finally {
+      setProfileLoading(false);
     }
-  }, [setSignedOutState]);
-
-  const checkUser = useCallback(async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session?.user) {
-        await loadProfile(session.user.id);
-      } else {
-        setSignedOutState();
-      }
-    } catch {
-      logAuthEvent("check_user_failed");
-      setSignedOutState();
-    }
-  }, [loadProfile, setSignedOutState]);
+  }, [clerkAuth.isLoaded, clerkAuth.isSignedIn, clerkUserState.user, getAuthToken]);
 
   useEffect(() => {
-    checkUser();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_, session) => {
-      try {
-        if (session?.user) {
-          await loadProfile(session.user.id);
-        } else {
-          setSignedOutState();
-        }
-      } catch {
-        logAuthEvent("auth_state_listener_failed");
-        setSignedOutState();
-      }
-    });
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, [checkUser, loadProfile, setSignedOutState]);
+    void loadProfile();
+  }, [loadProfile]);
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
-    let data;
-    let error;
+    const normalizedEmail = email.trim().toLowerCase();
+    const rateLimit = checkRateLimit(normalizedEmail, "login");
+    if (!rateLimit.allowed) return { ok: false, code: "rate_limited", message: rateLimit.message };
+    if (!validateEmailFormat(normalizedEmail)) return { ok: false, code: "invalid_email", message: "Format d’email invalide." };
+    if (!signInState.isLoaded) return { ok: false, code: "unknown", message: "Clerk est encore en cours de chargement." };
+
     try {
-      const result = await withTimeout(
-        supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
-          password,
-        }),
-        "Connexion trop longue. Verifiez votre connexion Internet puis reessayez."
-      );
-      data = result.data;
-      error = result.error;
-    } catch (e: any) {
-      const normalized = normalizeError(e);
-      logAuthEvent("login_failed", { code: normalized.code });
-      setLoginFailures((count) => count + 1);
-      return {
-        ok: false,
-        code: normalized.code,
-        message: normalized.message,
-      };
-    }
-
-    if (error) {
-      const normalized = normalizeError(error);
-      logAuthEvent("login_failed", { code: normalized.code });
-      setLoginFailures((count) => count + 1);
-      return {
-        ok: false,
-        code: normalized.code,
-        message: normalized.message,
-      };
-    }
-
-    if (!data.session) {
-      logAuthEvent("login_failed", { code: "email_not_confirmed" });
-      setLoginFailures((count) => count + 1);
-      return {
-        ok: false,
-        code: "email_not_confirmed",
-        message: "Session non active. Verifie votre email puis reconnectez-vous.",
-      };
-    }
-
-    setLoginFailures(0);
-    logAuthEvent("login_success");
-    return { ok: true };
-  };
-
-  const register = async (
-    nom: string,
-    email: string,
-    password: string,
-    telephone: string
-  ): Promise<AuthResult> => {
-    let data;
-    let error;
-    try {
-      const result = await withTimeout(
-        supabase.auth.signUp({
-          email: email.trim().toLowerCase(),
-          password,
-          options: {
-            data: {
-              nom,
-              telephone,
-            },
-          },
-        }),
-        "Inscription trop longue. Verifiez votre connexion Internet puis reessayez."
-      );
-      data = result.data;
-      error = result.error;
-    } catch (e: any) {
-      const normalized = normalizeError(e);
-      logAuthEvent("register_failed", { code: normalized.code });
-      return {
-        ok: false,
-        code: normalized.code,
-        message: normalized.message,
-      };
-    }
-
-    if (error) {
-      const normalized = normalizeError(error);
-      logAuthEvent("register_failed", { code: normalized.code });
-      return {
-        ok: false,
-        code: normalized.code,
-        message: normalized.message,
-      };
-    }
-
-    if (!data.session) {
-      logAuthEvent("register_pending_email_confirmation");
-      return {
-        ok: true,
-        requiresEmailConfirmation: true,
-        code: "email_not_confirmed",
-        message: "Compte cree. Confirmez votre email puis connectez-vous.",
-      };
-    }
-
-    logAuthEvent("register_success");
-    return { ok: true };
-  };
-
-  const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-      logAuthEvent("logout_success");
-    } finally {
+      const result = await signInState.signIn.create({ identifier: normalizedEmail, password });
+      if (result.status !== "complete" || !result.createdSessionId) {
+        return {
+          ok: false,
+          code: "additional_verification_required",
+          message: "Clerk demande une verification supplementaire qui n'est pas encore activee dans MenuCity. Utilisez pour ce test un compte e-mail et mot de passe sans verification telephone obligatoire.",
+        };
+      }
+      await signInState.setActive({ session: result.createdSessionId });
+      setDevelopmentUser(null);
+      resetUserRateLimit(normalizedEmail);
       setLoginFailures(0);
-      setSignedOutState();
+      logAuthEvent("login", normalizedEmail, "success");
+      return { ok: true };
+    } catch (error) {
+      const normalized = normalizeError(error);
+      setLoginFailures((count) => count + 1);
+      logAuthEvent("login", normalizedEmail, "failure", normalized.code);
+      return { ok: false, ...normalized };
+    }
+  };
+
+  const register = async (nom: string, email: string, password: string, telephone: string): Promise<AuthResult> => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = telephone.trim();
+    const rateLimit = checkRateLimit(normalizedEmail, "register");
+    if (!rateLimit.allowed) return { ok: false, code: "rate_limited", message: rateLimit.message };
+    if (!validateEmailFormat(normalizedEmail)) return { ok: false, code: "invalid_email", message: "Format d’email invalide." };
+    if (!validatePhoneFormat(normalizedPhone)) return { ok: false, code: "invalid_phone", message: "Numéro de téléphone invalide (9 à 15 chiffres)." };
+    const passwordResult = validatePassword(password);
+    if (!passwordResult.isValid || isCommonPassword(password)) {
+      return { ok: false, code: "weak_password", message: passwordResult.errors[0] || "Choisissez un mot de passe plus robuste." };
+    }
+    if (!signUpState.isLoaded) return { ok: false, code: "unknown", message: "Clerk est encore en cours de chargement." };
+
+    try {
+      const parts = nom.trim().split(/\s+/);
+      const result = await signUpState.signUp.create({
+        emailAddress: normalizedEmail,
+        password,
+        firstName: parts.shift() || nom.trim(),
+        lastName: parts.join(" ") || undefined,
+        unsafeMetadata: { phone: normalizedPhone },
+      });
+
+      if (result.status === "complete" && result.createdSessionId) {
+        await signUpState.setActive({ session: result.createdSessionId });
+        setDevelopmentUser(null);
+        resetUserRateLimit(normalizedEmail);
+        logAuthEvent("register", normalizedEmail, "success");
+        return { ok: true };
+      }
+
+      if (result.missingFields.includes("phone_number")) {
+        return {
+          ok: false,
+          code: "configuration_error",
+          message: "Dans Clerk, le numero de telephone est obligatoire pour l'authentification. Rendez-le facultatif pour cette phase : MenuCity utilise actuellement l'e-mail et le code OTP.",
+        };
+      }
+
+      await signUpState.signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      logAuthEvent("register", normalizedEmail, "success");
+      return { ok: true, requiresEmailConfirmation: true, code: "email_not_confirmed", message: "Un code de vérification a été envoyé par e-mail." };
+    } catch (error) {
+      const normalized = normalizeError(error);
+      logAuthEvent("register", normalizedEmail, "failure", normalized.code);
+      return { ok: false, ...normalized };
+    }
+  };
+
+  const verifyEmailCode = async (code: string): Promise<AuthResult> => {
+    if (!signUpState.isLoaded) return { ok: false, code: "unknown", message: "Clerk est encore en cours de chargement." };
+    try {
+      const result = await signUpState.signUp.attemptEmailAddressVerification({ code: code.trim() });
+      if (result.status !== "complete" || !result.createdSessionId) {
+        return { ok: false, code: "invalid_code", message: "La vérification n’est pas terminée." };
+      }
+      await signUpState.setActive({ session: result.createdSessionId });
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, ...normalizeError(error) };
+    }
+  };
+
+  const resendConfirmationEmail = async (_email: string): Promise<AuthResult> => {
+    if (!signUpState.isLoaded) return { ok: false, code: "unknown", message: "Clerk est encore en cours de chargement." };
+    try {
+      await signUpState.signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      return { ok: true, message: "Un nouveau code a été envoyé." };
+    } catch (error) {
+      return { ok: false, ...normalizeError(error) };
     }
   };
 
   const forgotPassword = async (email: string): Promise<AuthResult> => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!validateEmailFormat(normalizedEmail)) return { ok: false, code: "invalid_email", message: "Format d’email invalide." };
+    if (!signInState.isLoaded) return { ok: false, code: "unknown", message: "Clerk est encore en cours de chargement." };
     try {
-      const redirectTo = "menucity://auth/reset-password";
-      const { error } = await withTimeout(
-        supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo }),
-        "Operation trop longue. Verifiez votre connexion Internet puis reessayez."
-      );
-
-      if (error) {
-        const normalized = normalizeError(error);
-        logAuthEvent("forgot_password_failed", { code: normalized.code });
-        return { ok: false, code: normalized.code, message: normalized.message };
-      }
-      logAuthEvent("forgot_password_sent");
-      return { ok: true, message: "Email de reinitialisation envoye." };
-    } catch (e: unknown) {
-      const normalized = normalizeError(e);
-      logAuthEvent("forgot_password_failed", { code: normalized.code });
-      return { ok: false, code: normalized.code, message: normalized.message };
+      await signInState.signIn.create({ strategy: "reset_password_email_code", identifier: normalizedEmail });
+      return { ok: true, message: "Un code de réinitialisation a été envoyé." };
+    } catch (error) {
+      return { ok: false, ...normalizeError(error) };
     }
   };
 
-  const resendConfirmationEmail = async (email: string): Promise<AuthResult> => {
+  const resetPassword = async (code: string, password: string): Promise<AuthResult> => {
+    const passwordResult = validatePassword(password);
+    if (!passwordResult.isValid || isCommonPassword(password)) {
+      return { ok: false, code: "weak_password", message: passwordResult.errors[0] || "Choisissez un mot de passe plus robuste." };
+    }
+    if (!signInState.isLoaded) return { ok: false, code: "unknown", message: "Clerk est encore en cours de chargement." };
     try {
-      const { error } = await withTimeout(
-        supabase.auth.resend({
-          type: "signup",
-          email: email.trim().toLowerCase(),
-        }),
-        "Operation trop longue. Verifiez votre connexion Internet puis reessayez."
-      );
-
-      if (error) {
-        const normalized = normalizeError(error);
-        logAuthEvent("resend_confirmation_failed", { code: normalized.code });
-        return { ok: false, code: normalized.code, message: normalized.message };
+      const verified = await signInState.signIn.attemptFirstFactor({ strategy: "reset_password_email_code", code: code.trim() });
+      const result = await verified.resetPassword({ password });
+      if (result.status !== "complete" || !result.createdSessionId) {
+        return { ok: false, code: "unknown", message: "La réinitialisation n’a pas pu être finalisée." };
       }
-      logAuthEvent("resend_confirmation_sent");
-      return { ok: true, message: "Email de confirmation renvoye." };
-    } catch (e: unknown) {
-      const normalized = normalizeError(e);
-      logAuthEvent("resend_confirmation_failed", { code: normalized.code });
-      return { ok: false, code: normalized.code, message: normalized.message };
+      await signInState.setActive({ session: result.createdSessionId });
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, ...normalizeError(error) };
     }
   };
 
-  const updateUser = (patch: Partial<User>) => {
-    setUser((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, ...patch };
-      if (patch.role) setRole(patch.role);
-      return next;
-    });
-
-    void (async () => {
-      try {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
-        if (!authUser) return;
-
-        const profilePatch: Record<string, unknown> = {};
-        if (patch.role !== undefined) profilePatch.role = patch.role;
-
-        if (Object.keys(profilePatch).length > 0) {
-          await supabase.from("profiles").update(profilePatch).eq("id", authUser.id);
-        }
-
-        const metadataPatch: Record<string, unknown> = {};
-        if (patch.nom !== undefined) metadataPatch.nom = patch.nom;
-        if (patch.telephone !== undefined) metadataPatch.telephone = patch.telephone;
-        if (patch.bio !== undefined) metadataPatch.bio = patch.bio;
-        if (patch.photoProfil !== undefined) metadataPatch.photoProfil = patch.photoProfil;
-        if (patch.photoCouverture !== undefined) metadataPatch.photoCouverture = patch.photoCouverture;
-
-        if (Object.keys(metadataPatch).length > 0) {
-          await supabase.auth.updateUser({
-            data: metadataPatch,
-          });
-        }
-      } catch {
-        // ignore network errors here to keep UI responsive
-      }
-    })();
+  const logout = async () => {
+    setDevelopmentUser(null);
+    if (clerkAuth.isSignedIn) await clerkAuth.signOut();
+    setLoginFailures(0);
+    setUser(null);
   };
+
+  const updateUser = async (patch: Partial<User>) => {
+    if (developmentUser) {
+      setDevelopmentUser((current) => current ? { ...current, ...patch, role: "admin" } : current);
+      return;
+    }
+    if (!clerkUserState.user) throw new Error("Une connexion est requise.");
+    if (patch.nom !== undefined) {
+      const parts = patch.nom.trim().split(/\s+/);
+      await clerkUserState.user.update({ firstName: parts.shift() || "", lastName: parts.join(" ") || undefined });
+    }
+    if (isApiConfigured) {
+      await apiRequest<ProfileDto>("/v1/me", {
+        method: "PATCH",
+        getToken: getAuthToken,
+        body: {
+          ...(patch.telephone === undefined ? {} : { phone: patch.telephone }),
+          ...(patch.bio === undefined ? {} : { bio: patch.bio }),
+          ...(patch.photoProfil === undefined ? {} : { avatarUrl: patch.photoProfil || null }),
+          ...(patch.photoCouverture === undefined ? {} : { coverUrl: patch.photoCouverture || null }),
+          ...(patch.cuisinesPreferees === undefined ? {} : { preferredCuisines: patch.cuisinesPreferees }),
+        },
+      });
+    }
+    await loadProfile();
+  };
+
+  const startDevelopmentSession = () => {
+    if (!__DEV__) return;
+    setDevelopmentUser({ ...DEVELOPMENT_ADMIN });
+    setLoginFailures(0);
+  };
+
+  const activeUser = developmentUser || user;
+  const isDevelopmentSession = Boolean(__DEV__ && developmentUser);
 
   return {
-    isAuthReady,
-    user,
-    role,
-    isAuthenticated,
+    isAuthReady: isDevelopmentSession || (clerkAuth.isLoaded && !profileLoading),
+    isAuthenticated: isDevelopmentSession || Boolean(clerkAuth.isLoaded && clerkAuth.isSignedIn),
+    isDevelopmentSession,
+    user: activeUser,
+    role: activeUser?.role || (null as Role | null),
     loginFailures,
+    getAuthToken,
     login,
     register,
-    logout,
-    forgotPassword,
+    verifyEmailCode,
     resendConfirmationEmail,
+    forgotPassword,
+    resetPassword,
+    logout,
     updateUser,
+    startDevelopmentSession,
+    reloadProfile: loadProfile,
   };
 };

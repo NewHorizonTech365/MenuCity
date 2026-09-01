@@ -20,6 +20,13 @@ import { useData } from "../../providers/DataProvider";
 import { useTheme } from "../../styles/theme";
 import Icon from "../../components/Icon";
 import * as ImagePicker from "expo-image-picker";
+import { areMediaUploadsEnabled, uploadMedia } from "../../lib/api";
+import StateView from "../../components/ui/StateView";
+import AppHeader from "../../components/ui/AppHeader";
+import FadeInImage from "../../components/ui/FadeInImage";
+import PressableScale from "../../components/ui/PressableScale";
+import SearchField from "../../components/ui/SearchField";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 /**
  * Admin - Restaurants manager (ajout Image Picker)
@@ -31,7 +38,7 @@ import * as ImagePicker from "expo-image-picker";
 
 export default function RestaurantsAdminScreen() {
   const router = useRouter();
-  const { isAuthReady, user } = useAuth();
+  const { isAuthReady, isDevelopmentSession, user, getAuthToken } = useAuth();
   const {
     restaurants,
     addRestaurant,
@@ -40,6 +47,8 @@ export default function RestaurantsAdminScreen() {
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
+    reload,
+    getRestaurant,
   } = useData();
   const { colors, spacing, radius, typography } = useTheme();
 
@@ -99,6 +108,14 @@ export default function RestaurantsAdminScreen() {
   };
   const [form, setForm] = useState<any>(blankRestaurantForm);
 
+  const isLocalImage = (uri?: string) => Boolean(uri && !/^https?:\/\//i.test(uri));
+  const uploadImageUri = async (uri: string, scope: string, ownerId: string) => {
+    const extension = uri.split("?")[0].toLowerCase();
+    const contentType = extension.endsWith(".png") ? "image/png" as const : extension.endsWith(".webp") ? "image/webp" as const : "image/jpeg" as const;
+    const blob = await (await fetch(uri)).blob();
+    return uploadMedia(`/v1/uploads/${scope}/${ownerId}`, blob, contentType, getAuthToken);
+  };
+
   const openAddModal = () => {
     setEditing(null);
     setForm(blankRestaurantForm);
@@ -124,8 +141,9 @@ export default function RestaurantsAdminScreen() {
       return;
     }
     try {
+      let saved;
       if (editing) {
-        await updateRestaurant(editing.id, {
+        saved = await updateRestaurant(editing.id, {
           nom: form.nom,
           cuisine: form.cuisine,
           adresse: form.adresse,
@@ -133,19 +151,30 @@ export default function RestaurantsAdminScreen() {
           prixMoyen: form.prixMoyen,
           description: form.description,
           horaires: form.horaires,
-          image: form.image,
-          logo: form.logo,
+          image: isLocalImage(form.image) && !isDevelopmentSession ? editing.image : form.image,
+          logo: isLocalImage(form.logo) && !isDevelopmentSession ? editing.logo : form.logo,
           photos: form.photos,
           specialites: form.specialites,
           note: form.note,
         });
         Alert.alert("Succès", "Restaurant mis à jour");
       } else {
-        await addRestaurant({
+        saved = await addRestaurant({
           ...form,
+          image: isLocalImage(form.image) && !isDevelopmentSession ? "" : form.image,
+          logo: isLocalImage(form.logo) && !isDevelopmentSession ? "" : form.logo,
         });
         Alert.alert("Succès", "Restaurant ajouté");
       }
+      if (!saved) throw new Error("Restaurant introuvable après enregistrement.");
+      if (!isDevelopmentSession) {
+        if (isLocalImage(form.image)) await uploadImageUri(form.image, "restaurant-main", saved.id);
+        if (isLocalImage(form.logo)) await uploadImageUri(form.logo, "restaurant-logo", saved.id);
+        for (const photo of form.photos || []) {
+          if (isLocalImage(photo)) await uploadImageUri(photo, "restaurant-photo", saved.id);
+        }
+      }
+      await reload();
       setEditModalVisible(false);
     } catch (e) {
       console.error("save restaurant error", e);
@@ -155,17 +184,17 @@ export default function RestaurantsAdminScreen() {
 
   const handleDeleteRestaurant = (r: any) => {
     Alert.alert(
-      "Supprimer",
-      `Voulez-vous supprimer "${r.nom}" ? Cette action est irréversible.`,
+      "Archiver",
+      `Voulez-vous archiver "${r.nom}" ? Son historique sera conservé.`,
       [
         { text: "Annuler", style: "cancel" },
         {
-          text: "Supprimer",
+          text: "Archiver",
           style: "destructive",
           onPress: async () => {
             try {
               await deleteRestaurant(r.id);
-              Alert.alert("Supprimé", "Restaurant supprimé");
+              Alert.alert("Archivé", "Restaurant archivé");
             } catch (e) {
               console.error("delete error", e);
               Alert.alert("Erreur", "Suppression impossible");
@@ -200,26 +229,37 @@ export default function RestaurantsAdminScreen() {
   const saveMenuItem = async () => {
     if (!menuRestaurant || !selectedMenuItem) return;
     try {
+      let savedItem;
       if (selectedMenuItem.id) {
-        await updateMenuItem(menuRestaurant.id, selectedMenuItem.id, {
+        savedItem = await updateMenuItem(menuRestaurant.id, selectedMenuItem.id, {
           nom: selectedMenuItem.nom,
           prix: selectedMenuItem.prix,
           description: selectedMenuItem.description,
-          photosMenu: selectedMenuItem.photosMenu || [],
+          photosMenu: isDevelopmentSession
+            ? selectedMenuItem.photosMenu || []
+            : (selectedMenuItem.photosMenu || []).filter((photo: string) => !isLocalImage(photo)),
         });
         Alert.alert("Succès", "Plat mis à jour");
       } else {
-        await addMenuItem(menuRestaurant.id, {
+        savedItem = await addMenuItem(menuRestaurant.id, {
           nom: selectedMenuItem.nom,
           prix: selectedMenuItem.prix,
           description: selectedMenuItem.description,
-          photosMenu: selectedMenuItem.photosMenu || [],
+          photosMenu: isDevelopmentSession
+            ? selectedMenuItem.photosMenu || []
+            : (selectedMenuItem.photosMenu || []).filter((photo: string) => !isLocalImage(photo)),
         });
         Alert.alert("Succès", "Plat ajouté");
       }
-      // reload local menuRestaurant reference from provider's restaurants
+      if (!savedItem) throw new Error("Plat introuvable après enregistrement.");
+      if (!isDevelopmentSession) {
+        for (const photo of selectedMenuItem.photosMenu || []) {
+          if (isLocalImage(photo)) await uploadImageUri(photo, "menu-item-photo", savedItem.id);
+        }
+      }
+      await reload();
       setSelectedMenuItem(null);
-      const fresh = restaurants.find((x) => x.id === menuRestaurant.id);
+      const fresh = await getRestaurant(menuRestaurant.id);
       setMenuRestaurant(fresh || null);
     } catch (e) {
       console.error("save menu item error", e);
@@ -236,7 +276,7 @@ export default function RestaurantsAdminScreen() {
         onPress: async () => {
           try {
             await deleteMenuItem(menuRestaurant.id, mi.id);
-            const fresh = restaurants.find((x) => x.id === menuRestaurant.id);
+            const fresh = await getRestaurant(menuRestaurant.id);
             setMenuRestaurant(fresh || null);
             Alert.alert("Supprimé", "Plat supprimé");
           } catch (e) {
@@ -288,6 +328,13 @@ export default function RestaurantsAdminScreen() {
 
   // Pick for restaurant form: type = 'image' | 'logo' | 'photos' (photos appends)
   const pickImageForForm = async (type: "image" | "logo" | "photos") => {
+    if (!areMediaUploadsEnabled && !isDevelopmentSession) {
+      Alert.alert(
+        "Envoi d’images indisponible",
+        "Saisissez une URL HTTPS dans les champs image et logo. Le stockage de fichiers est désactivé pour rester sur les offres gratuites.",
+      );
+      return;
+    }
     Alert.alert(
       "Ajouter une image",
       "Choisissez une source",
@@ -332,6 +379,13 @@ export default function RestaurantsAdminScreen() {
   // Pick images for a menu item (append)
   const pickImageForMenuItem = async (useCamera = false) => {
     if (!selectedMenuItem) return;
+    if (!areMediaUploadsEnabled && !isDevelopmentSession) {
+      Alert.alert(
+        "Envoi d’images indisponible",
+        "Le stockage de fichiers sera activé plus tard si le projet en a besoin.",
+      );
+      return;
+    }
     const uri = await requestPermissionAndPick(useCamera);
     if (!uri) return;
     setSelectedMenuItem((m: any) => ({ ...m, photosMenu: [...(m.photosMenu || []), uri] }));
@@ -366,7 +420,7 @@ export default function RestaurantsAdminScreen() {
           }}
         >
           <View style={{ width: 72, height: 72, borderRadius: 12, overflow: "hidden", backgroundColor: "#eee" }}>
-            <Image source={{ uri: item.logo || item.image || undefined }} style={{ width: "100%", height: "100%" }} />
+            <FadeInImage accessible={false} source={{ uri: item.logo || item.image || undefined }} style={{ width: "100%", height: "100%" }} />
           </View>
 
           <View style={{ flex: 1, marginLeft: spacing.md }}>
@@ -376,23 +430,23 @@ export default function RestaurantsAdminScreen() {
             </Text>
 
             <View style={{ flexDirection: "row", marginTop: 10 }}>
-              <TouchableOpacity onPress={() => openEditModal(item)} style={{ marginRight: 12 }}>
-                <View style={{ padding: 8, borderRadius: 8, backgroundColor: colors.backgroundAlt }}>
+              <PressableScale accessibilityRole="button" accessibilityLabel={`Modifier ${item.nom}`} haptic="selection" onPress={() => openEditModal(item)} style={{ marginRight: 12 }}>
+                <View style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.primarySoft }}>
                   <Icon name="pencil" size={16} color={colors.primary} />
                 </View>
-              </TouchableOpacity>
+              </PressableScale>
 
-              <TouchableOpacity onPress={() => openMenuFor(item)} style={{ marginRight: 12 }}>
-                <View style={{ padding: 8, borderRadius: 8, backgroundColor: colors.backgroundAlt }}>
+              <PressableScale accessibilityRole="button" accessibilityLabel={`Gérer le menu de ${item.nom}`} haptic="selection" onPress={() => openMenuFor(item)} style={{ marginRight: 12 }}>
+                <View style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.primarySoft }}>
                   <Icon name="fast-food" size={16} color={colors.primary} />
                 </View>
-              </TouchableOpacity>
+              </PressableScale>
 
-              <TouchableOpacity onPress={() => handleDeleteRestaurant(item)}>
-                <View style={{ padding: 8, borderRadius: 8, backgroundColor: colors.backgroundAlt }}>
+              <PressableScale accessibilityRole="button" accessibilityLabel={`Archiver ${item.nom}`} haptic="selection" onPress={() => handleDeleteRestaurant(item)}>
+                <View style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: '#FEECEC' }}>
                   <Icon name="trash" size={16} color={colors.accent} />
                 </View>
-              </TouchableOpacity>
+              </PressableScale>
             </View>
           </View>
         </View>
@@ -401,44 +455,16 @@ export default function RestaurantsAdminScreen() {
   };
 
   if (!isAuthReady || !user) {
-    return null;
+    return <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}><StateView title="Vérification de l’accès…" loading /></View>;
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: spacing.lg }}>
-      {/* header */}
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.md }}>
-        <Text style={{ flex: 1, fontFamily: typography.bold, fontSize: 22, color: colors.text }}>Gérer les restaurants</Text>
-        <TouchableOpacity onPress={() => router.replace("/admin")} style={{ padding: 8 }}>
-          <Icon name="arrow-back" size={20} color={colors.textLight} />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, paddingHorizontal: spacing.md, paddingTop: 4 }}>
+      <AppHeader title="Gérer les restaurants" subtitle={`${filtered.length} adresse${filtered.length > 1 ? 's' : ''} dans le catalogue`} onBack={() => router.replace("/admin")} />
 
-      {/* search */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: colors.card,
-          borderRadius: radius.pill,
-          borderWidth: 1,
-          borderColor: colors.border,
-          paddingHorizontal: spacing.md,
-          height: 48,
-          marginBottom: spacing.md,
-        }}
-      >
-        <Icon name="search" size={16} color={colors.textLight} />
-        <TextInput
-          placeholder="Rechercher par nom / cuisine / adresse"
-          placeholderTextColor={colors.textLight}
-          style={{ marginLeft: 8, flex: 1, color: colors.text, fontFamily: typography.regular }}
-          value={query}
-          onChangeText={setQuery}
-        />
-        <TouchableOpacity onPress={() => { setQuery(""); }} style={{ padding: 8 }}>
-          <Icon name="close" size={16} color={colors.textLight} />
-        </TouchableOpacity>
+      <View style={{ marginBottom: spacing.md }}>
+        <SearchField value={query} onChangeText={setQuery} placeholder="Nom, cuisine ou adresse" />
       </View>
 
       {/* list */}
@@ -447,6 +473,9 @@ export default function RestaurantsAdminScreen() {
         keyExtractor={(r) => r.id}
         renderItem={renderRestaurantCard}
         showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 96 }}
         ListEmptyComponent={() => (
           <View style={{ padding: spacing.lg, alignItems: "center" }}>
             <Text style={{ color: colors.textLight }}>Aucun restaurant trouvé.</Text>
@@ -455,7 +484,10 @@ export default function RestaurantsAdminScreen() {
       />
 
       {/* Floating Add Button */}
-      <TouchableOpacity
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel="Ajouter un restaurant"
+        haptic="soft"
         onPress={openAddModal}
         style={{
           position: "absolute",
@@ -471,7 +503,7 @@ export default function RestaurantsAdminScreen() {
         }}
       >
         <Icon name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      </PressableScale>
 
       {/* ---------- EDIT / ADD RESTAURANT MODAL ---------- */}
       <Modal visible={isEditModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditModalVisible(false)}>
@@ -479,7 +511,7 @@ export default function RestaurantsAdminScreen() {
           title={editing ? "Modifier le restaurant" : "Nouveau restaurant"}
           onClose={() => setEditModalVisible(false)}
         >
-          <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
+          <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>
             <FormRow label="Nom">
               <TextInput
                 value={form.nom}
@@ -623,9 +655,9 @@ export default function RestaurantsAdminScreen() {
 
             <View style={{ height: spacing.lg }} />
 
-            <TouchableOpacity onPress={commitSaveRestaurant} style={{ backgroundColor: colors.primary, padding: 14, borderRadius: radius.md, alignItems: "center" }}>
+            <PressableScale accessibilityRole="button" accessibilityLabel={editing ? "Sauvegarder le restaurant" : "Créer le restaurant"} haptic="soft" onPress={commitSaveRestaurant} style={{ backgroundColor: colors.primary, padding: 14, borderRadius: radius.pill, alignItems: "center" }}>
               <Text style={{ color: "#fff", fontFamily: typography.semiBold }}>{editing ? "Sauvegarder" : "Créer"}</Text>
-            </TouchableOpacity>
+            </PressableScale>
 
             <View style={{ height: spacing.xl }} />
           </ScrollView>
@@ -635,10 +667,10 @@ export default function RestaurantsAdminScreen() {
       {/* ---------- MENU MODAL ---------- */}
       <Modal visible={isMenuModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMenuModalVisible(false)}>
         <SafeEditModal title={`Menus — ${menuRestaurant?.nom || ""}`} onClose={() => setMenuModalVisible(false)}>
-          <View style={{ padding: spacing.lg }}>
-            <TouchableOpacity onPress={openAddMenuItem} style={{ marginBottom: spacing.md, backgroundColor: colors.primary, padding: 12, borderRadius: radius.md, alignItems: "center" }}>
+          <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>
+            <PressableScale accessibilityRole="button" accessibilityLabel="Ajouter un plat" haptic="soft" onPress={openAddMenuItem} style={{ marginBottom: spacing.md, backgroundColor: colors.primary, padding: 12, borderRadius: radius.pill, alignItems: "center" }}>
               <Text style={{ color: "#fff", fontFamily: typography.semiBold }}>Ajouter un plat</Text>
-            </TouchableOpacity>
+            </PressableScale>
 
             {/* menu list */}
             {(menuRestaurant?.menu || []).length === 0 ? (
@@ -752,10 +784,11 @@ export default function RestaurantsAdminScreen() {
                 </View>
               </View>
             )}
-          </View>
+          </ScrollView>
         </SafeEditModal>
       </Modal>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 
   // ---------- small helpers ----------
@@ -780,16 +813,13 @@ export default function RestaurantsAdminScreen() {
 ----------------------- */
 
 function SafeEditModal({ children, title, onClose }: any) {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing } = useTheme();
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <View style={{ padding: spacing.lg, borderBottomWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontFamily: typography.bold, fontSize: 18 }}>{title}</Text>
-        <TouchableOpacity onPress={onClose}>
-          <Text style={{ color: colors.primary, fontFamily: typography.semiBold }}>Fermer</Text>
-        </TouchableOpacity>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <View style={{ paddingHorizontal: spacing.md, borderBottomWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+        <AppHeader title={title} onBack={onClose} />
       </View>
-      <ScrollView style={{ flex: 1 }}>{children}</ScrollView>
+      <View style={{ flex: 1 }}>{children}</View>
     </KeyboardAvoidingView>
   );
 }

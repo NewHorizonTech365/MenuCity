@@ -4,20 +4,16 @@ module.exports = {
 		'**/*.{js,css,html,png,jpg,jpeg,svg,ico,json}'
 	],
 	swDest: 'dist/sw.js',
+	maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
 	skipWaiting: true,
 	clientsClaim: true,
 	navigationPreload: true,
 	runtimeCaching: [{
-		urlPattern: /.*/,
+		urlPattern: ({ request }) => request.mode === 'navigate',
 		handler: 'NetworkFirst',
 		options: {
-			networkTimeoutSeconds: 10,
-			backgroundSync: {
-				name: 'navigation-queue',
-				options: {
-					maxRetentionTime: 24 * 60 // 24 hours
-				}
-			}
+			cacheName: 'menucity-pages',
+			networkTimeoutSeconds: 10
 		}
 	}]
 };

@@ -1,56 +1,59 @@
 // app/restaurant/[id].tsx — Page détails restaurant (données centralisées)
 
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
-import { View, Text, TouchableOpacity, Modal } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Modal } from "react-native";
 import { useData } from "../../providers/DataProvider";
 import RestaurantDetails from "../../components/RestaurantDetails";
-import InviteFriendSheet from "../../components/InviteFriendSheet";
+import InviteFriendSheet, { type InvitePayload } from "../../components/InviteFriendSheet";
 import { useTheme } from "../../styles/theme";
+import { useAuth } from "../../providers/AuthProvider";
+import type { Restaurant } from "../../types/Restaurant";
+import StateView from "../../components/ui/StateView";
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { restaurants } = useData();            // ⬅️ DONNÉES CENTRALISÉES
+  const { restaurants, getRestaurant, createInvitation } = useData();
+  const { isAuthenticated } = useAuth();
   const { colors } = useTheme();               // ⬅️ thème modernisé
 
-  const restaurant = restaurants.find((r) => r.id === id);
+  const restaurantId = String(id || "");
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(() => restaurants.find((r) => r.id === restaurantId) || null);
+  const [isLoading, setIsLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
 
-  // Si l'ID n'existe pas
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+    void getRestaurant(restaurantId).then((result) => {
+      if (active) setRestaurant(result);
+    }).finally(() => {
+      if (active) setIsLoading(false);
+    });
+    return () => { active = false; };
+  }, [getRestaurant, restaurantId]);
+
+  const openInvite = () => {
+    if (!isAuthenticated) {
+      router.push("/auth/login");
+      return;
+    }
+    setShowInvite(true);
+  };
+
+  const saveInvitation = async (payload: InvitePayload) => {
+    await createInvitation(payload);
+  };
+
+  if (isLoading && !restaurant) {
+    return <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}><StateView title="Chargement du restaurant…" loading /></View>;
+  }
+
   if (!restaurant) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 20,
-          backgroundColor: colors.background,
-        }}
-      >
-        <Text
-          style={{
-            color: colors.text,
-            fontSize: 18,
-            marginBottom: 20,
-            textAlign: "center",
-          }}
-        >
-          Restaurant introuvable
-        </Text>
-
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{
-            paddingVertical: 12,
-            paddingHorizontal: 20,
-            backgroundColor: colors.primary,
-            borderRadius: 25,
-          }}
-        >
-          <Text style={{ color: "#fff", fontSize: 16 }}>Retour</Text>
-        </TouchableOpacity>
+      <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
+        <StateView title="Restaurant introuvable" message="Cette adresse n’est plus disponible dans le catalogue." actionLabel="Retour" onAction={() => router.back()} />
       </View>
     );
   }
@@ -60,7 +63,7 @@ export default function RestaurantScreen() {
       {/* DETAILS DU RESTAURANT */}
       <RestaurantDetails
         restaurant={restaurant}
-        onInvite={() => setShowInvite(true)}
+        onInvite={openInvite}
       />
 
       {/* MODAL INVITATION */}
@@ -73,10 +76,7 @@ export default function RestaurantScreen() {
         <InviteFriendSheet
           restaurant={restaurant}
           onClose={() => setShowInvite(false)}
-          onSendInvitation={(data: any) => {
-            console.log("Invitation envoyée:", data);
-            setShowInvite(false);
-          }}
+          onSendInvitation={saveInvitation}
         />
       </Modal>
     </View>

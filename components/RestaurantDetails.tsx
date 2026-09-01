@@ -1,321 +1,131 @@
-// components/RestaurantDetails.tsx
-import MapView, { Marker } from "react-native-maps";
-import React from "react";
-import { View, Text, Image, ScrollView, TouchableOpacity, Dimensions } from "react-native";
-import { useRouter } from "expo-router";
-import Icon from "./Icon";
-import { Restaurant } from "../types/Restaurant";
-import { useTheme } from "../styles/theme";
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get("window");
+import { colors, layout, radius, spacing, typography } from '../styles/theme';
+import type { Restaurant } from '../types/Restaurant';
+import RestaurantLocationMap from './RestaurantLocationMap';
+import AppButton from './ui/AppButton';
+import SectionHeader from './ui/SectionHeader';
 
-type MenuItem = {
-  id?: string;
-  nom: string;
-  prix: string;
-  description?: string;
-  photosMenu?: string[]; // ⬅️ ici les images réelles des plats
-};
+interface RestaurantDetailsProps { restaurant: Restaurant; onInvite: () => void }
 
-interface Props {
-  restaurant: Restaurant;
-  onInvite: () => void;
-}
-
-export default function RestaurantDetails({ restaurant, onInvite }: Props) {
+export default function RestaurantDetails({ restaurant, onInvite }: RestaurantDetailsProps) {
   const router = useRouter();
-  const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const latitude = Number(restaurant.latitude);
+  const longitude = Number(restaurant.longitude);
+  const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+  const mapLatitude = hasCoordinates ? latitude : -11.6647;
+  const mapLongitude = hasCoordinates ? longitude : 27.4794;
+  const cardWidth = Math.min(width * 0.72, 310);
 
-  const dishes: MenuItem[] = (restaurant.menu as unknown as MenuItem[]) || [];
-  const lubumbashiFallback = { latitude: -11.6647, longitude: 27.4794 };
-
-  const lat = Number(restaurant.latitude);
-  const lng = Number(restaurant.longitude);
-  const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
-
-  const region = {
-    latitude: hasValidCoords ? lat : lubumbashiFallback.latitude,
-    longitude: hasValidCoords ? lng : lubumbashiFallback.longitude,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
+  const openDirections = () => {
+    const destination = hasCoordinates ? `${latitude},${longitude}` : restaurant.adresse;
+    void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`);
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* BACK */}
-      <View style={{ position: "absolute", top: 44, left: 16, zIndex: 50 }}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 21,
-            backgroundColor: "rgba(0,0,0,0.45)",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Icon name="arrow-back" size={22} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
-        {/* HERO */}
-        <Image
-          source={{ uri: restaurant.image }}
-          style={{
-            width,
-            height: 340,
-            borderBottomLeftRadius: 28,
-            borderBottomRightRadius: 28,
-          }}
-        />
-
-        {/* LOGO */}
-        <View style={{ alignItems: "center", marginTop: -50 }}>
-          {!!restaurant.logo && (
-            <Image
-              source={{ uri: restaurant.logo }}
-              style={{
-                width: 110,
-                height: 110,
-                borderRadius: 60,
-                borderWidth: 4,
-                borderColor: "#fff",
-                backgroundColor: "#fff",
-              }}
-            />
-          )}
+    <View style={styles.screen}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingBottom: 98 + insets.bottom }]}>
+        <View style={styles.hero}>
+          <Image source={{ uri: restaurant.image }} style={styles.heroImage} resizeMode="cover" />
+          <LinearGradient colors={['rgba(36,25,21,0.08)', 'rgba(36,25,21,0.75)']} style={StyleSheet.absoluteFill} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Revenir en arrière" onPress={() => router.back()} style={[styles.back, { top: insets.top + spacing.sm }]}>
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
+          </Pressable>
+          <View style={styles.heroCopy}>
+            <Text style={styles.cuisine}>{restaurant.cuisine}</Text>
+            <Text style={styles.name}>{restaurant.nom}</Text>
+            <View style={styles.heroMeta}><Ionicons name="star" size={16} color="#F7C65A" /><Text style={styles.heroMetaText}>{restaurant.note.toFixed(1)}</Text><Text style={styles.heroDot}>•</Text><Text style={styles.heroMetaText}>{restaurant.prixMoyen}</Text></View>
+          </View>
         </View>
 
-        {/* INFOS */}
-        <View style={{ padding: spacing.lg }}>
-          <Text style={{ fontFamily: typography.bold, fontSize: 30, color: colors.text, marginBottom: 6 }}>
-            {restaurant.nom}
-          </Text>
-
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
-            <Icon name="star" size={18} color="#FFD452" />
-            <Text style={{ marginLeft: 6, fontFamily: typography.semiBold, color: colors.text }}>
-              {restaurant.note.toFixed(1)}
-            </Text>
-
-            <View
-              style={{
-                marginLeft: 12,
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                borderWidth: 1,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: radius.pill,
-              }}
-            >
-              <Text style={{ fontFamily: typography.semiBold, color: colors.textLight }}>
-                {restaurant.cuisine}
-              </Text>
-            </View>
+        <View style={styles.page}>
+          <Text style={styles.description}>{restaurant.description}</Text>
+          <View style={styles.quickInfo}>
+            <View style={styles.infoItem}><Ionicons name="time-outline" size={19} color={colors.primary} /><Text style={styles.infoText}>{restaurant.horaires}</Text></View>
+            <View style={styles.infoDivider} />
+            <View style={styles.infoItem}><Ionicons name="call-outline" size={19} color={colors.primary} /><Text style={styles.infoText}>{restaurant.telephone || 'Non renseigné'}</Text></View>
           </View>
 
-          <Text style={{ fontFamily: typography.regular, color: colors.textLight, lineHeight: 22, marginBottom: 24 }}>
-            {restaurant.description}
-          </Text>
-
-          {/* PHOTOS RESTO */}
-          {!!restaurant.photos?.length && (
-            <>
-              <Text style={{ fontFamily: typography.bold, color: colors.text, fontSize: 20, marginBottom: 12 }}>
-                Photos du restaurant
-              </Text>
-
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
-                {restaurant.photos.map((p, idx) => (
-                  <Image
-                    key={idx}
-                    source={{ uri: p }}
-                    style={{
-                      width: width * 0.7,
-                      height: 180,
-                      borderRadius: radius.lg,
-                      marginRight: spacing.md,
-                      backgroundColor: "#eee",
-                    }}
-                  />
-                ))}
+          {restaurant.photos.length ? (
+            <View style={styles.section}>
+              <SectionHeader title="L’ambiance en images" />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
+                {restaurant.photos.map((photo, index) => <Image key={`${photo}-${index}`} source={{ uri: photo }} style={[styles.galleryImage, { width: cardWidth }]} resizeMode="cover" />)}
               </ScrollView>
-            </>
-          )}
+            </View>
+          ) : null}
 
-          {/* MENU */}
-          {!!dishes.length && (
-            <>
-              <Text style={{ fontFamily: typography.bold, fontSize: 20, color: colors.text, marginBottom: 12 }}>
-                Menu du restaurant
-              </Text>
-
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
-                {dishes.map((dish, idx) => {
-                  const dishImg =
-                    dish.photosMenu?.[0] ||
-                    restaurant.photos?.[0] || // fallback intelligent
-                    restaurant.image; // sécurité finale
-
-                  return (
-                    <View
-                      key={dish.id ?? `${dish.nom}-${idx}`}
-                      style={{
-                        width: width * 0.55,
-                        backgroundColor: colors.card,
-                        borderRadius: radius.lg,
-                        overflow: "hidden",
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        marginRight: spacing.md,
-                      }}
-                    >
-                      <Image
-                        source={{ uri: dishImg }}
-                        style={{ width: "100%", height: 120, backgroundColor: "#eee" }}
-                      />
-                      <View style={{ padding: spacing.md }}>
-                        <Text
-                          numberOfLines={1}
-                          style={{ fontFamily: typography.semiBold, color: colors.text, fontSize: 15 }}
-                        >
-                          {dish.nom}
-                        </Text>
-                        <Text style={{ fontFamily: typography.bold, color: colors.primary, marginTop: 6 }}>
-                          {dish.prix}
-                        </Text>
-                      </View>
-                    </View>
-                  );
+          {restaurant.menu?.length ? (
+            <View style={styles.section}>
+              <SectionHeader eyebrow="À la carte" title="Le menu" />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
+                {restaurant.menu.map((dish, index) => {
+                  const image = dish.photosMenu?.[0] || restaurant.photos[0] || restaurant.image;
+                  return <View key={dish.id || `${dish.nom}-${index}`} style={[styles.dishCard, { width: Math.min(width * 0.58, 260) }]}><Image source={{ uri: image }} style={styles.dishImage} resizeMode="cover" /><View style={styles.dishCopy}><Text style={styles.dishName} numberOfLines={1}>{dish.nom}</Text>{dish.description ? <Text style={styles.dishDescription} numberOfLines={2}>{dish.description}</Text> : null}<Text style={styles.price}>{dish.prix}</Text></View></View>;
                 })}
               </ScrollView>
-            </>
-          )}
-
-          {/* LOCALISATION */}
-          <Text style={{ fontFamily: typography.bold, fontSize: 20, color: colors.text, marginBottom: 12 }}>
-            Localisation
-          </Text>
-
-          <View
-            style={{
-              borderRadius: radius.lg,
-              overflow: "hidden",
-              borderWidth: 1,
-              borderColor: colors.border,
-              marginBottom: 16,
-            }}
-          >
-            <MapView
-              style={{ width: "100%", height: 180 }}
-              initialRegion={region}
-              scrollEnabled={false}
-            >
-              {hasValidCoords ? (
-                <Marker
-                  coordinate={{ latitude: lat, longitude: lng }}
-                  title={restaurant.nom}
-                  description={restaurant.adresse}
-                />
-              ) : null}
-            </MapView>
-          </View>
-
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: radius.lg,
-              borderWidth: 1,
-              borderColor: colors.border,
-              padding: spacing.md,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 8,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-              <Icon name="location" size={18} color={colors.textLight} />
-              <Text
-                style={{
-                  marginLeft: 8,
-                  fontFamily: typography.regular,
-                  color: colors.textLight,
-                  flex: 1,
-                }}
-                numberOfLines={2}
-              >
-                {restaurant.adresse}
-              </Text>
             </View>
+          ) : null}
 
-            <TouchableOpacity
-              onPress={() => {}}
-              style={{
-                marginLeft: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: radius.pill,
-                backgroundColor: colors.card,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={{ fontFamily: typography.semiBold, color: colors.primary }}>Voir l’itinéraire</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
-            <Icon name="call" size={18} color={colors.textLight} />
-            <Text style={{ marginLeft: 8, fontFamily: typography.regular, color: colors.textLight }}>
-              {restaurant.telephone}
-            </Text>
-          </View>
-
-          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
-            <Icon name="time" size={18} color={colors.textLight} />
-            <Text style={{ marginLeft: 8, fontFamily: typography.regular, color: colors.textLight }}>
-              {restaurant.horaires}
-            </Text>
+          <View style={styles.section}>
+            <SectionHeader title="Localisation" />
+            <View style={styles.map}><RestaurantLocationMap latitude={mapLatitude} longitude={mapLongitude} title={restaurant.nom} description={restaurant.adresse} hasValidCoords={hasCoordinates} /></View>
+            <View style={styles.addressCard}>
+              <View style={styles.addressIcon}><Ionicons name="location-outline" size={21} color={colors.primary} /></View>
+              <View style={styles.addressCopy}><Text style={styles.addressLabel}>Adresse</Text><Text style={styles.address}>{restaurant.adresse}</Text></View>
+              <Pressable accessibilityRole="link" accessibilityLabel="Ouvrir l’itinéraire" onPress={openDirections} style={({ pressed }) => [styles.directionButton, pressed && styles.pressed]}><Ionicons name="navigate-outline" size={20} color={colors.primary} /></Pressable>
+            </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* INVITER CTA */}
-      <View
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: spacing.lg,
-          backgroundColor: colors.background,
-          borderTopWidth: 1,
-          borderColor: colors.border,
-        }}
-      >
-        <TouchableOpacity
-          onPress={onInvite}
-          style={{
-            backgroundColor: colors.primary,
-            borderRadius: radius.pill,
-            paddingVertical: 16,
-            alignItems: "center",
-            flexDirection: "row",
-            justifyContent: "center",
-          }}
-          activeOpacity={0.9}
-        >
-          <Icon name="person-add" size={20} color="#fff" />
-          <Text style={{ marginLeft: 10, color: "#fff", fontFamily: typography.semiBold, fontSize: 16 }}>
-            Inviter un ami
-          </Text>
-        </TouchableOpacity>
+      <View style={[styles.cta, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+        <AppButton label="Inviter un ami" icon={<Ionicons name="person-add-outline" size={20} color={colors.white} />} onPress={onInvite} />
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  scroll: { backgroundColor: colors.background },
+  hero: { height: 410, overflow: 'hidden', backgroundColor: colors.backgroundAlt },
+  heroImage: { width: '100%', height: '100%' },
+  back: { position: 'absolute', left: spacing.md, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.scrim },
+  heroCopy: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.xl },
+  cuisine: { color: '#FFD6BC', fontFamily: typography.semiBold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase' },
+  name: { color: colors.white, fontFamily: typography.bold, fontSize: 31, lineHeight: 37, marginTop: 4 },
+  heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.xs },
+  heroMetaText: { color: colors.white, fontFamily: typography.semiBold, fontSize: 13 },
+  heroDot: { color: colors.border },
+  page: { width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center', padding: spacing.lg, gap: spacing.xl },
+  description: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 15, lineHeight: 23 },
+  quickInfo: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  infoItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: spacing.sm },
+  infoText: { color: colors.text, fontFamily: typography.semiBold, fontSize: 12, textAlign: 'center' },
+  infoDivider: { width: 1, backgroundColor: colors.border },
+  section: { gap: spacing.md },
+  horizontal: { gap: spacing.md, paddingRight: spacing.md },
+  galleryImage: { height: 190, borderRadius: radius.lg, backgroundColor: colors.backgroundAlt },
+  dishCard: { overflow: 'hidden', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  dishImage: { width: '100%', height: 135, backgroundColor: colors.backgroundAlt },
+  dishCopy: { padding: spacing.md },
+  dishName: { color: colors.text, fontFamily: typography.bold, fontSize: 15 },
+  dishDescription: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  price: { color: colors.primary, fontFamily: typography.bold, fontSize: 14, marginTop: spacing.xs },
+  map: { overflow: 'hidden', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+  addressCard: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  addressIcon: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  addressCopy: { flex: 1 },
+  addressLabel: { color: colors.textMuted, fontFamily: typography.regular, fontSize: 11 },
+  address: { color: colors.text, fontFamily: typography.semiBold, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  directionButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  cta: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
+  pressed: { opacity: 0.72 },
+});

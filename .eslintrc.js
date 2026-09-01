@@ -40,7 +40,8 @@ module.exports = {
     {
       files: ['metro.config.js'],
       rules: {
-        '@typescript-eslint/no-var-requires': 'off'
+        '@typescript-eslint/no-var-requires': 'off',
+        '@typescript-eslint/no-require-imports': 'off'
       }
     }
   ]

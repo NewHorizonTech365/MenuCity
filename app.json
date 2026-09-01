@@ -5,28 +5,48 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "jsEngine": "jsc",
+    "jsEngine": "hermes",
     "splash": {
       "image": "./assets/images/natively-dark.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#F7F7F8"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.MenuCity",
+      "bundleIdentifier": "com.menucity.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "Allow local network discovery",
+        "NSBonjourServices": [
+          "_menucity._tcp",
+          "_menucity._udp"
+        ]
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/natively-dark.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#F7F7F8"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.MenuCity"
+      "package": "com.menucity.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "menucity"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -35,7 +55,9 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-secure-store",
+      "@clerk/expo"
     ],
     "scheme": "menucity",
     "experiments": {
@@ -47,6 +69,12 @@
       "eas": {
         "projectId": "b9426342-9b1e-443f-90cb-836ec8167c1c"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b9426342-9b1e-443f-90cb-836ec8167c1c"
     }
   }
 }
