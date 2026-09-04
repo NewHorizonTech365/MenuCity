@@ -2,7 +2,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const STORAGE_KEYS = {
-  RESTAURANTS: 'app:restaurants_v1'
+  RESTAURANTS: 'app:restaurants_v1',
+  ARCHIVED_RESTAURANTS: 'app:restaurants_archived_v1',
 };
 
 export const saveJson = async (key: string, value: any) => {

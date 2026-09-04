@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { triggerHaptic } from '../lib/haptics';
 import { colors, spacing, typography } from '../styles/theme';
@@ -41,39 +41,36 @@ export default function ProfileEditSheet({ user, onUpdate, onClose }: ProfileEdi
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-        <View style={styles.header}>
-          <View style={styles.headerIcon}><Ionicons name="person-outline" size={22} color={colors.primary} /></View>
-          <View style={styles.headerCopy}>
-            <Text style={styles.title}>Modifier le profil</Text>
-            <Text style={styles.subtitle}>Gardez vos informations utiles et faciles à reconnaître.</Text>
-          </View>
+    <ScrollView
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.content}
+    >
+      <View style={styles.header}>
+        <View style={styles.headerIcon}><Ionicons name="person-outline" size={22} color={colors.primary} /></View>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>Modifier le profil</Text>
+          <Text style={styles.subtitle}>Gardez vos informations utiles et faciles à reconnaître.</Text>
         </View>
+      </View>
 
-        <View style={styles.form}>
-          <FormField label="Nom complet" value={nom} onChangeText={setNom} autoCapitalize="words" autoComplete="name" error={nameError} editable={!saving} />
-          <FormField label="Adresse e-mail" value={user.email} editable={false} hint="L’e-mail est géré par votre compte Clerk." />
-          <FormField label="Téléphone" value={telephone} onChangeText={setTelephone} keyboardType="phone-pad" autoComplete="tel" error={phoneError} editable={!saving} />
-          <FormField label="Bio" value={bio} onChangeText={setBio} placeholder="Quelques mots sur vos goûts culinaires…" multiline textAlignVertical="top" style={styles.bioInput} editable={!saving} />
-        </View>
+      <View style={styles.form}>
+        <FormField label="Nom complet" value={nom} onChangeText={setNom} autoCapitalize="words" autoComplete="name" error={nameError} editable={!saving} />
+        <FormField label="Adresse e-mail" value={user.email} editable={false} hint="L’e-mail est géré par votre compte Clerk." />
+        <FormField label="Téléphone" value={telephone} onChangeText={setTelephone} keyboardType="phone-pad" autoComplete="tel" error={phoneError} editable={!saving} />
+        <FormField label="Bio" value={bio} onChangeText={setBio} placeholder="Quelques mots sur vos goûts culinaires…" multiline textAlignVertical="top" style={styles.bioInput} editable={!saving} />
+      </View>
 
-        <View style={styles.actions}>
-          <AppButton label="Annuler" variant="ghost" onPress={onClose} disabled={saving} style={styles.action} />
-          <AppButton label="Enregistrer" onPress={() => void handleSave()} loading={saving} style={styles.action} />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <View style={styles.actions}>
+        <AppButton label="Annuler" variant="ghost" onPress={onClose} disabled={saving} style={styles.action} />
+        <AppButton label="Enregistrer" onPress={() => void handleSave()} loading={saving} style={styles.action} />
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   headerIcon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },

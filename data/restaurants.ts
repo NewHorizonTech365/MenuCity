@@ -21,11 +21,16 @@ export const restaurantsLubumbashi: Restaurant[] = [
     prixMoyen: "15-25 USD",
     description: "Restaurant familial servant des plats traditionnels congolais dans une ambiance chaleureuse.",
     horaires: "11h00 - 22h00",
+    openingPeriods: [{ days: [0, 1, 2, 3, 4, 5, 6], opensAt: "11:00", closesAt: "22:00" }],
+    quartier: "Lubumbashi",
+    services: [],
+    paymentMethods: [],
+    isVerified: false,
     specialites: ["Fufu", "Pondu", "Poisson salé", "Chikwangue"],
     menu: [
-      { id: '1', nom:"Fufu + poisson salé", prix:"12 USD", photosMenu:["https://media.istockphoto.com/id/2203034554/fr/photo/mangez-du-riz-avec-des-plats-daccompagnement.webp?a=1&b=1&s=612x612&w=0&k=20&c=EstQQzMYgmX4k8O-nESp_rqIYQ6ZF-RxdHgOBZ20AfM="] },
-      { id: '1', nom:"Pondu viande", prix:"10 USD", photosMenu:["https://images.unsplash.com/photo-1659881981676-33ab127152c0?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGxlZ3VtZSUyMHZpYW5kZXxlbnwwfHwwfHx8MA%3D%3D"] },
-      { id: '1', nom:"Chikwangue grillée", prix:"6 USD", photosMenu:["https://plus.unsplash.com/premium_photo-1666675707930-aff264c34996?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8Q2hpa3dhbmd1ZSUyMGdyaWxsJUMzJUE5ZXxlbnwwfHwwfHx8MA%3D%3D"] },
+      { id: '1-1', nom:"Fufu + poisson salé", prix:"12 USD", photosMenu:["https://media.istockphoto.com/id/2203034554/fr/photo/mangez-du-riz-avec-des-plats-daccompagnement.webp?a=1&b=1&s=612x612&w=0&k=20&c=EstQQzMYgmX4k8O-nESp_rqIYQ6ZF-RxdHgOBZ20AfM="] },
+      { id: '1-2', nom:"Pondu viande", prix:"10 USD", photosMenu:["https://images.unsplash.com/photo-1659881981676-33ab127152c0?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGxlZ3VtZSUyMHZpYW5kZXxlbnwwfHwwfHx8MA%3D%3D"] },
+      { id: '1-3', nom:"Chikwangue grillée", prix:"6 USD", photosMenu:["https://plus.unsplash.com/premium_photo-1666675707930-aff264c34996?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8Q2hpa3dhbmd1ZSUyMGdyaWxsJUMzJUE5ZXxlbnwwfHwwfHx8MA%3D%3D"] },
     ]
   },
   {
@@ -48,11 +53,16 @@ export const restaurantsLubumbashi: Restaurant[] = [
     prixMoyen: "20-35 USD",
     description: "Cuisine africaine moderne avec une touche contemporaine, terrasse avec vue panoramique.",
     horaires: "12h00 - 23h00",
+    openingPeriods: [{ days: [0, 1, 2, 3, 4, 5, 6], opensAt: "12:00", closesAt: "23:00" }],
+    quartier: "Golf",
+    services: [],
+    paymentMethods: [],
+    isVerified: false,
     specialites: ["Tilapia grillé", "Riz jollof", "Brochettes de bœuf", "Plantain caramélisé"],
     menu: [
-      { id: '1', nom:"Tilapia grillé & frites", prix:"18 USD", photosMenu:["https://media.istockphoto.com/id/1418221059/fr/photo/poisson-tilapia-grill%C3%A9-en-cro%C3%BBte-de-sel.webp?a=1&b=1&s=612x612&w=0&k=20&c=9CB48umkK2X6WpJkcCuZN93Z_UclZLClpBsadjlB_tk="] },
-      { id: '1', nom:"Brochettes de boeuf", prix:"15 USD", photosMenu:["https://images.unsplash.com/photo-1654876203651-64761cbcc5cc?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8QnJvY2hldHRlcyUyMGRlJTIwYm9ldWZ8ZW58MHx8MHx8fDA%3D"] },
-      { id: '1', nom:"Plantain caramélisé", prix:"8 USD", photosMenu:["https://media.istockphoto.com/id/1330525805/fr/photo/tranches-de-plantain-caram%C3%A9lis%C3%A9es-une-collation-traditionnelle-%C3%A0-lheure-du-th%C3%A9-du-kerala.webp?a=1&b=1&s=612x612&w=0&k=20&c=iMMQOPj_ZWynwpH99_H0r6KKZ2-o8J9hKy_2u7NrYl8="] },
+      { id: '2-1', nom:"Tilapia grillé & frites", prix:"18 USD", photosMenu:["https://media.istockphoto.com/id/1418221059/fr/photo/poisson-tilapia-grill%C3%A9-en-cro%C3%BBte-de-sel.webp?a=1&b=1&s=612x612&w=0&k=20&c=9CB48umkK2X6WpJkcCuZN93Z_UclZLClpBsadjlB_tk="] },
+      { id: '2-2', nom:"Brochettes de boeuf", prix:"15 USD", photosMenu:["https://images.unsplash.com/photo-1654876203651-64761cbcc5cc?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8QnJvY2hldHRlcyUyMGRlJTIwYm9ldWZ8ZW58MHx8MHx8fDA%3D"] },
+      { id: '2-3', nom:"Plantain caramélisé", prix:"8 USD", photosMenu:["https://media.istockphoto.com/id/1330525805/fr/photo/tranches-de-plantain-caram%C3%A9lis%C3%A9es-une-collation-traditionnelle-%C3%A0-lheure-du-th%C3%A9-du-kerala.webp?a=1&b=1&s=612x612&w=0&k=20&c=iMMQOPj_ZWynwpH99_H0r6KKZ2-o8J9hKy_2u7NrYl8="] },
     ]
   },
   {
@@ -75,11 +85,16 @@ export const restaurantsLubumbashi: Restaurant[] = [
     prixMoyen: "12-20 USD",
     description: "Spécialités du Katanga dans un cadre authentique avec musique traditionnelle.",
     horaires: "10h00 - 21h00",
+    openingPeriods: [{ days: [0, 1, 2, 3, 4, 5, 6], opensAt: "10:00", closesAt: "21:00" }],
+    quartier: "Centre-ville",
+    services: [],
+    paymentMethods: [],
+    isVerified: false,
     specialites: ["Chenilles grillées", "Kapenta", "Ugali", "Bière Primus"],
     menu: [
-      { id: '1', nom:"Chenilles grillées", prix:"10 USD", photosMenu:["https://media.istockphoto.com/id/2224805077/fr/photo/insectes-comestibles-grill%C3%A9s.webp?a=1&b=1&s=612x612&w=0&k=20&c=n6AhHRkXT_NlKPejtMST4nRj4mQ8eNEcKuuX4HxcdXw="] },
-      { id: '1', nom:"Kapenta & fufu", prix:"12 USD", photosMenu:["https://media.istockphoto.com/id/517413002/fr/photo/pakoras-aux-%C3%A9pinards-et-pommes-de-terre.webp?a=1&b=1&s=612x612&w=0&k=20&c=YY6dRpRe7_eMcc5jxMcbFM7qMRrReMUciEPBLa5sQeo="] },
-      { id: '1', nom:"Ugali sauce tomate", prix:"8 USD", photosMenu:["https://media.istockphoto.com/id/1162876160/fr/photo/bouilli-nig%C3%A9rian-yam-et-spicy-tomato-pepper-stew-plan-rapproch%C3%A9.webp?a=1&b=1&s=612x612&w=0&k=20&c=UcWSVluyWN2uFfTyvNMmMiJDPacfXhkYUiRo2ziFgpc="] },
+      { id: '3-1', nom:"Chenilles grillées", prix:"10 USD", photosMenu:["https://media.istockphoto.com/id/2224805077/fr/photo/insectes-comestibles-grill%C3%A9s.webp?a=1&b=1&s=612x612&w=0&k=20&c=n6AhHRkXT_NlKPejtMST4nRj4mQ8eNEcKuuX4HxcdXw="] },
+      { id: '3-2', nom:"Kapenta & fufu", prix:"12 USD", photosMenu:["https://media.istockphoto.com/id/517413002/fr/photo/pakoras-aux-%C3%A9pinards-et-pommes-de-terre.webp?a=1&b=1&s=612x612&w=0&k=20&c=YY6dRpRe7_eMcc5jxMcbFM7qMRrReMUciEPBLa5sQeo="] },
+      { id: '3-3', nom:"Ugali sauce tomate", prix:"8 USD", photosMenu:["https://media.istockphoto.com/id/1162876160/fr/photo/bouilli-nig%C3%A9rian-yam-et-spicy-tomato-pepper-stew-plan-rapproch%C3%A9.webp?a=1&b=1&s=612x612&w=0&k=20&c=UcWSVluyWN2uFfTyvNMmMiJDPacfXhkYUiRo2ziFgpc="] },
     ]
   },
   {
@@ -102,11 +117,16 @@ export const restaurantsLubumbashi: Restaurant[] = [
     prixMoyen: "25-40 USD",
     description: "Restaurant haut de gamme avec terrasse tropicale, cuisine internationale et africaine.",
     horaires: "18h00 - 24h00",
+    openingPeriods: [{ days: [0, 1, 2, 3, 4, 5, 6], opensAt: "18:00", closesAt: "00:00" }],
+    quartier: "Résidentiel",
+    services: ["Terrasse"],
+    paymentMethods: [],
+    isVerified: false,
     specialites: ["Steaks", "Fruits de mer", "Salades exotiques", "Cocktails tropicaux"],
     menu: [
-      { id: '1', nom:"Steak black Angus", prix:"28 USD", photosMenu:["https://images.unsplash.com/photo-1755938864715-f7bac3718dd7?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8U3RlYWslMjBibGFjayUyMEFuZ3VzfGVufDB8fDB8fHww"] },
-      { id: '1', nom:"Fruits de mer mix grill", prix:"32 USD", photosMenu:["https://images.unsplash.com/photo-1738576379736-c9122d3d7e9d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8RnJ1aXRzJTIwZGUlMjBtZXIlMjBtaXglMjBncmlsbHxlbnwwfHwwfHx8MA%3D%3D"] },
-      { id: '1', nom:"Salade tropicale", prix:"16 USD", photosMenu:["https://images.unsplash.com/photo-1544510807-1c0229035e63?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8U2FsYWRlJTIwdHJvcGljYWxlfGVufDB8fDB8fHww"] },
+      { id: '4-1', nom:"Steak black Angus", prix:"28 USD", photosMenu:["https://images.unsplash.com/photo-1755938864715-f7bac3718dd7?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8U3RlYWslMjBibGFjayUyMEFuZ3VzfGVufDB8fDB8fHww"] },
+      { id: '4-2', nom:"Fruits de mer mix grill", prix:"32 USD", photosMenu:["https://images.unsplash.com/photo-1738576379736-c9122d3d7e9d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8RnJ1aXRzJTIwZGUlMjBtZXIlMjBtaXglMjBncmlsbHxlbnwwfHwwfHx8MA%3D%3D"] },
+      { id: '4-3', nom:"Salade tropicale", prix:"16 USD", photosMenu:["https://images.unsplash.com/photo-1544510807-1c0229035e63?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8U2FsYWRlJTIwdHJvcGljYWxlfGVufDB8fDB8fHww"] },
     ]
   },
   {
@@ -129,11 +149,16 @@ export const restaurantsLubumbashi: Restaurant[] = [
     prixMoyen: "18-30 USD",
     description: "Voyage culinaire à travers l'Afrique avec des plats de différents pays du continent.",
     horaires: "11h30 - 22h30",
+    openingPeriods: [{ days: [0, 1, 2, 3, 4, 5, 6], opensAt: "11:30", closesAt: "22:30" }],
+    quartier: "Lubumbashi",
+    services: [],
+    paymentMethods: [],
+    isVerified: false,
     specialites: ["Tagine marocain", "Injera éthiopien", "Bobotie sud-africain", "Thieboudienne"],
     menu: [
-      { id: '1', nom:"Tagine marocain poulet", prix:"17 USD", photosMenu:["https://plus.unsplash.com/premium_photo-1764176479893-6590154dccc1?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8dGFuZ2luZSUyMHBvdWxldHxlbnwwfHwwfHx8MA%3D%3D"] },
-      { id: '2', nom:"Bobotie sud-africain", prix:"15 USD", photosMenu:["https://media.istockphoto.com/id/805248036/fr/photo/bobotie-et-jaune-riz-cuisine-sud-africaine.webp?a=1&b=1&s=612x612&w=0&k=20&c=CsEgnv8spP_crXfrCKFe-d5sezMSARsRmXYMzvIdyak="] },
-      { id: '3', nom:"Thieboudienne", prix:"14 USD", photosMenu:["https://media.istockphoto.com/id/1311463633/fr/photo/plat-traditionnel-de-poisson-et-de-riz-dafrique-de-louest-de-thieboudienne-dun-pot-avec-le.webp?a=1&b=1&s=612x612&w=0&k=20&c=WcnD-sdyql6GocGvXFmAto98_jfPmtxwXUvmDUNnSPE="] },
+      { id: '5-1', nom:"Tagine marocain poulet", prix:"17 USD", photosMenu:["https://plus.unsplash.com/premium_photo-1764176479893-6590154dccc1?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8dGFuZ2luZSUyMHBvdWxldHxlbnwwfHwwfHx8MA%3D%3D"] },
+      { id: '5-2', nom:"Bobotie sud-africain", prix:"15 USD", photosMenu:["https://media.istockphoto.com/id/805248036/fr/photo/bobotie-et-jaune-riz-cuisine-sud-africaine.webp?a=1&b=1&s=612x612&w=0&k=20&c=CsEgnv8spP_crXfrCKFe-d5sezMSARsRmXYMzvIdyak="] },
+      { id: '5-3', nom:"Thieboudienne", prix:"14 USD", photosMenu:["https://media.istockphoto.com/id/1311463633/fr/photo/plat-traditionnel-de-poisson-et-de-riz-dafrique-de-louest-de-thieboudienne-dun-pot-avec-le.webp?a=1&b=1&s=612x612&w=0&k=20&c=WcnD-sdyql6GocGvXFmAto98_jfPmtxwXUvmDUNnSPE="] },
     ]
   },
   {
@@ -156,11 +181,16 @@ export const restaurantsLubumbashi: Restaurant[] = [
     prixMoyen: "15-28 USD",
     description: "Spécialiste des grillades en plein air avec jardin tropical et animations musicales.",
     horaires: "16h00 - 23h00",
+    openingPeriods: [{ days: [0, 1, 2, 3, 4, 5, 6], opensAt: "16:00", closesAt: "23:00" }],
+    quartier: "Route de Kipushi",
+    services: [],
+    paymentMethods: [],
+    isVerified: false,
     specialites: ["Brochettes mixtes", "Porc grillé", "Poisson braisé", "Légumes grillés"],
     menu: [
-      { id: '1', nom:"Brochettes mixtes BBQ", prix:"18 USD", photosMenu:["https://plus.unsplash.com/premium_photo-1669150852115-38eb25f072e0?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8YnJvY2hldHRlc3xlbnwwfHwwfHx8MA%3D%3D"] },
-      { id: '1', nom:"Porc grillé & frites", prix:"15 USD", photosMenu:["https://plus.unsplash.com/premium_photo-1664297875423-bb2de49cb277?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fHBvcmMlMjBncmlsbGV8ZW58MHx8MHx8fDA%3D"] },
-      { id: '1', nom:"Poisson braisé", prix:"17 USD", photosMenu:["https://media.istockphoto.com/id/522634236/fr/photo/friture-de-poissons-%C3%A0-po%C3%AAle-%C3%A0-frire.webp?a=1&b=1&s=612x612&w=0&k=20&c=nC6yT6FYPAd4D-4tFVb-nShN70NiGDF8wypRwSTebiE="] },
+      { id: '6-1', nom:"Brochettes mixtes BBQ", prix:"18 USD", photosMenu:["https://plus.unsplash.com/premium_photo-1669150852115-38eb25f072e0?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8YnJvY2hldHRlc3xlbnwwfHwwfHx8MA%3D%3D"] },
+      { id: '6-2', nom:"Porc grillé & frites", prix:"15 USD", photosMenu:["https://plus.unsplash.com/premium_photo-1664297875423-bb2de49cb277?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fHBvcmMlMjBncmlsbGV8ZW58MHx8MHx8fDA%3D"] },
+      { id: '6-3', nom:"Poisson braisé", prix:"17 USD", photosMenu:["https://media.istockphoto.com/id/522634236/fr/photo/friture-de-poissons-%C3%A0-po%C3%AAle-%C3%A0-frire.webp?a=1&b=1&s=612x612&w=0&k=20&c=nC6yT6FYPAd4D-4tFVb-nShN70NiGDF8wypRwSTebiE="] },
     ]
   },
 ];

@@ -16,9 +16,10 @@ interface RestaurantDeckProps {
   restaurants: Restaurant[];
   onOpen: (restaurant: Restaurant) => void;
   onInvite: (restaurant: Restaurant) => void;
+  distanceById?: ReadonlyMap<string, number | null>;
 }
 
-export default function RestaurantDeck({ restaurants, onOpen, onInvite }: RestaurantDeckProps) {
+export default function RestaurantDeck({ restaurants, onOpen, onInvite, distanceById }: RestaurantDeckProps) {
   const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const translateX = useSharedValue(0);
@@ -116,7 +117,7 @@ export default function RestaurantDeck({ restaurants, onOpen, onInvite }: Restau
         ) : null}
         <GestureDetector gesture={pan}>
           <Animated.View style={[styles.currentCard, animatedStyle]}>
-            <RestaurantTile restaurant={current} variant="deck" onPress={() => onOpen(current)} />
+            <RestaurantTile restaurant={current} variant="deck" distanceKm={distanceById?.get(current.id) ?? null} onPress={() => onOpen(current)} />
             <Animated.View pointerEvents="none" style={[styles.swipeBadge, styles.passBadge, passBadgeStyle]}>
               <Text style={[styles.swipeBadgeText, styles.passBadgeText]}>PASSER</Text>
             </Animated.View>
@@ -146,10 +147,10 @@ export default function RestaurantDeck({ restaurants, onOpen, onInvite }: Restau
 
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
-  stack: { minHeight: 365, justifyContent: 'center' },
+  stack: { minHeight: 420, justifyContent: 'center' },
   currentCard: { width: '100%' },
   nextCard: { position: 'absolute', left: 10, right: 10, top: 10, bottom: 2, overflow: 'hidden', borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  nextImage: { width: '100%', height: 238 },
+  nextImage: { width: '100%', height: 220 },
   nextTitle: { padding: spacing.md, color: colors.text, fontFamily: typography.bold, fontSize: 18 },
   swipeBadge: { position: 'absolute', top: spacing.lg, zIndex: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.sm, backgroundColor: 'rgba(255,255,255,0.94)', borderWidth: 2 },
   passBadge: { left: spacing.md, borderColor: colors.textSecondary, transform: [{ rotate: '-5deg' }] },

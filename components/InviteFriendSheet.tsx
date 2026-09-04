@@ -11,6 +11,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, { FadeIn, ReduceMotion, SlideInDown } from 'react-native-reanimated';
@@ -21,6 +22,7 @@ import { colors, radius, shadows, spacing, typography } from '../styles/theme';
 import type { Restaurant } from '../types/Restaurant';
 import AppButton from './ui/AppButton';
 import AppHeader from './ui/AppHeader';
+import DateTimePickerField from './ui/DateTimePickerField';
 import FormField from './ui/FormField';
 import PressableScale from './ui/PressableScale';
 
@@ -53,22 +55,35 @@ const shareOptions: ShareOption[] = [
   { key: 'other', label: 'Autre', icon: 'share-social-outline', color: colors.primary },
 ];
 
+const initialProposal = () => {
+  const value = new Date();
+  value.setDate(value.getDate() + 1);
+  value.setHours(19, 0, 0, 0);
+  return value;
+};
+
+const formatDate = (value: Date) => [value.getDate(), value.getMonth() + 1, value.getFullYear()]
+  .map((part, index) => index < 2 ? String(part).padStart(2, '0') : String(part))
+  .join('/');
+const formatTime = (value: Date) => `${String(value.getHours()).padStart(2, '0')}h${String(value.getMinutes()).padStart(2, '0')}`;
+
 export default function InviteFriendSheet({ restaurant, onClose, onSendInvitation }: InviteFriendSheetProps) {
-  const [inviteEmail, setInviteEmail] = useState('');
+  const { width } = useWindowDimensions();
   const [inviteNom, setInviteNom] = useState('');
-  const [dateProposee, setDateProposee] = useState('');
-  const [heureProposee, setHeureProposee] = useState('');
+  const [proposedAt, setProposedAt] = useState(initialProposal);
   const [message, setMessage] = useState(`Salut ! J’aimerais t’inviter à découvrir ${restaurant.nom}, un restaurant ${restaurant.cuisine} à Lubumbashi.`);
   const [isPersisting, setIsPersisting] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [attempted, setAttempted] = useState(false);
+  const minimumDate = useMemo(() => {
+    const value = new Date();
+    value.setHours(0, 0, 0, 0);
+    return value;
+  }, []);
+  const dateProposee = formatDate(proposedAt);
+  const heureProposee = formatTime(proposedAt);
 
-  const fieldErrors = useMemo(() => ({
-    name: attempted && !inviteNom.trim() ? 'Le nom de votre ami est requis.' : undefined,
-    email: attempted && !inviteEmail.trim() ? 'L’adresse e-mail est requise.' : undefined,
-    date: attempted && !dateProposee.trim() ? 'Proposez une date.' : undefined,
-    time: attempted && !heureProposee.trim() ? 'Proposez une heure.' : undefined,
-  }), [attempted, dateProposee, heureProposee, inviteEmail, inviteNom]);
+  const nameError = attempted && !inviteNom.trim() ? 'Le nom de votre ami est requis.' : undefined;
 
   const inviteText = useMemo(() => [
     message.trim(),
@@ -81,13 +96,13 @@ export default function InviteFriendSheet({ restaurant, onClose, onSendInvitatio
 
   const handlePrepare = async () => {
     setAttempted(true);
-    if (!inviteNom.trim() || !inviteEmail.trim() || !dateProposee.trim() || !heureProposee.trim()) return;
+    if (!inviteNom.trim()) return;
 
     setIsPersisting(true);
     try {
       await onSendInvitation({
         restaurantId: restaurant.id,
-        inviteEmail: inviteEmail.trim(),
+        inviteEmail: '',
         inviteNom: inviteNom.trim(),
         message: message.trim(),
         dateProposee: dateProposee.trim(),
@@ -96,7 +111,7 @@ export default function InviteFriendSheet({ restaurant, onClose, onSendInvitatio
       triggerHaptic('success');
       setShowShare(true);
     } catch (error) {
-      Alert.alert('Invitation non enregistrée', error instanceof Error ? error.message : 'Vérifiez votre connexion puis réessayez.');
+      Alert.alert('Invitation non préparée', error instanceof Error ? error.message : 'Vérifiez votre connexion puis réessayez.');
     } finally {
       setIsPersisting(false);
     }
@@ -121,7 +136,7 @@ export default function InviteFriendSheet({ restaurant, onClose, onSendInvitatio
 
       if (option === 'email') {
         const subject = encodeURIComponent(`Invitation chez ${restaurant.nom}`);
-        const emailUrl = `mailto:${inviteEmail.trim()}?subject=${subject}&body=${encodeURIComponent(inviteText)}`;
+        const emailUrl = `mailto:?subject=${subject}&body=${encodeURIComponent(inviteText)}`;
         if (await Linking.canOpenURL(emailUrl)) {
           await Linking.openURL(emailUrl);
           return;
@@ -134,9 +149,14 @@ export default function InviteFriendSheet({ restaurant, onClose, onSendInvitatio
     }
   };
 
+  const finishInvitation = () => {
+    setShowShare(false);
+    onClose();
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.headerWrap}>
           <AppHeader title="Inviter un ami" subtitle="Préparez l’invitation, puis choisissez comment l’envoyer." onBack={onClose} />
         </View>
@@ -157,27 +177,30 @@ export default function InviteFriendSheet({ restaurant, onClose, onSendInvitatio
 
           <View style={styles.sectionIntro}>
             <Text style={styles.sectionTitle}>Votre proposition</Text>
-            <Text style={styles.sectionText}>L’invitation sera d’abord enregistrée dans MenuCity avant l’ouverture du partage.</Text>
+            <Text style={styles.sectionText}>Choisissez simplement la personne et le bon moment. Le destinataire sera sélectionné dans votre application de partage.</Text>
           </View>
 
           <View style={styles.form}>
-            <FormField label="Nom de votre ami" value={inviteNom} onChangeText={setInviteNom} placeholder="Ex. Jean Mukendi" autoCapitalize="words" error={fieldErrors.name} editable={!isPersisting} />
-            <FormField label="Adresse e-mail" value={inviteEmail} onChangeText={setInviteEmail} placeholder="jean@exemple.com" keyboardType="email-address" autoCapitalize="none" autoComplete="email" error={fieldErrors.email} editable={!isPersisting} />
-            <View style={styles.scheduleRow}>
-              <View style={styles.scheduleField}><FormField label="Date proposée" value={dateProposee} onChangeText={setDateProposee} placeholder="25/09/2026" keyboardType="numbers-and-punctuation" error={fieldErrors.date} editable={!isPersisting} /></View>
-              <View style={styles.scheduleField}><FormField label="Heure" value={heureProposee} onChangeText={setHeureProposee} placeholder="19h30" error={fieldErrors.time} editable={!isPersisting} /></View>
+            <FormField label="Nom de votre ami" value={inviteNom} onChangeText={setInviteNom} placeholder="Ex. Jean Mukendi" autoCapitalize="words" error={nameError} editable={!isPersisting} />
+            <View style={styles.contactHint}>
+              <View style={styles.contactIcon}><Ionicons name="people-outline" size={19} color={colors.primary} /></View>
+              <Text style={styles.contactText}>Aucun e-mail à mémoriser. WhatsApp ou l’application de partage vous laissera choisir directement votre ami.</Text>
+            </View>
+            <View style={[styles.scheduleRow, width < 360 && styles.scheduleColumn]}>
+              <View style={styles.scheduleField}><DateTimePickerField label="Date proposée" mode="date" value={proposedAt} minimumDate={minimumDate} onChange={setProposedAt} disabled={isPersisting} /></View>
+              <View style={styles.scheduleField}><DateTimePickerField label="Heure" mode="time" value={proposedAt} onChange={setProposedAt} disabled={isPersisting} /></View>
             </View>
             <FormField label="Message personnalisé" value={message} onChangeText={setMessage} multiline textAlignVertical="top" style={styles.messageInput} editable={!isPersisting} />
           </View>
 
           <View style={styles.securityNote}>
             <Ionicons name="cloud-done-outline" size={19} color={colors.success} />
-            <Text style={styles.securityText}>Aucun envoi n’est simulé : vous choisissez vous-même l’application de partage.</Text>
+            <Text style={styles.securityText}>Aucun contact à recopier : WhatsApp, e-mail ou le partage du téléphone vous laissera choisir le destinataire.</Text>
           </View>
         </ScrollView>
 
         <View style={styles.footer}>
-          <AppButton label="Enregistrer et partager" icon={<Ionicons name="send-outline" size={19} color={colors.white} />} loading={isPersisting} onPress={() => void handlePrepare()} />
+          <AppButton label="Préparer et partager" icon={<Ionicons name="send-outline" size={19} color={colors.white} />} loading={isPersisting} onPress={() => void handlePrepare()} />
         </View>
       </KeyboardAvoidingView>
 
@@ -187,7 +210,7 @@ export default function InviteFriendSheet({ restaurant, onClose, onSendInvitatio
           <Animated.View entering={SlideInDown.duration(240).reduceMotion(ReduceMotion.System)} style={styles.shareSheet}>
             <View style={styles.handle} />
             <View style={styles.successIcon}><Ionicons name="checkmark" size={24} color={colors.white} /></View>
-            <Text style={styles.shareTitle}>Invitation enregistrée</Text>
+            <Text style={styles.shareTitle}>Invitation prête</Text>
             <Text style={styles.shareText}>Choisissez maintenant où envoyer votre message à {inviteNom.trim()}.</Text>
 
             <View style={styles.shareGrid}>
@@ -199,7 +222,7 @@ export default function InviteFriendSheet({ restaurant, onClose, onSendInvitatio
               ))}
             </View>
 
-            <AppButton label="Terminer" variant="ghost" onPress={onClose} />
+            <AppButton label="Terminer" variant="ghost" onPress={finishInvitation} />
           </Animated.View>
         </View>
       </Modal>
@@ -221,7 +244,11 @@ const styles = StyleSheet.create({
   sectionTitle: { color: colors.text, fontFamily: typography.bold, fontSize: 18 },
   sectionText: { color: colors.textSecondary, fontFamily: typography.regular, fontSize: 12, lineHeight: 18 },
   form: { gap: spacing.md },
+  contactHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.primarySoft },
+  contactIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  contactText: { flex: 1, color: colors.primaryDark, fontFamily: typography.regular, fontSize: 12, lineHeight: 17 },
   scheduleRow: { flexDirection: 'row', gap: spacing.sm },
+  scheduleColumn: { flexDirection: 'column' },
   scheduleField: { minWidth: 0, flex: 1 },
   messageInput: { minHeight: 112, paddingTop: spacing.md },
   securityNote: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs, padding: spacing.sm, borderRadius: radius.md, backgroundColor: '#EAF7F0' },

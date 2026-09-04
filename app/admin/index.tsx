@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { user, isAuthReady, isAuthenticated, isDevelopmentSession } = useAuth();
   const { restaurants } = useData();
+  const goBack = () => router.canGoBack() ? router.back() : router.replace('/profile');
 
   useEffect(() => {
     if (isAuthReady && (!isAuthenticated || user?.role !== 'admin')) router.replace('/home');
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.page}>
-          <Animated.View entering={FadeInUp.duration(200).reduceMotion(ReduceMotion.System)}><AppHeader title="Administration" subtitle={`Bonjour ${user.nom}. Pilotez le catalogue MenuCity.`} onBack={() => router.replace('/profile')} /></Animated.View>
+          <Animated.View entering={FadeInUp.duration(200).reduceMotion(ReduceMotion.System)}><AppHeader title="Administration" subtitle={`Bonjour ${user.nom}. Pilotez le catalogue MenuCity.`} onBack={goBack} /></Animated.View>
           {isDevelopmentSession ? (
             <Animated.View entering={FadeInUp.duration(210).delay(35).reduceMotion(ReduceMotion.System)} style={styles.devBanner}>
               <Ionicons name="construct-outline" size={21} color={colors.warning} />

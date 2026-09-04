@@ -1,5 +1,12 @@
-// Types pour les restaurants
-// Backend pourra plus tard alimenter ces champs.
+export type RestaurantService = 'Livraison' | 'Parking' | 'Réservation' | 'Terrasse' | 'À emporter';
+export type RestaurantPaymentMethod = 'Espèces' | 'Carte bancaire' | 'Airtel Money' | 'M-Pesa' | 'Orange Money';
+export type RestaurantStatus = 'draft' | 'published' | 'archived';
+
+export interface RestaurantOpeningPeriod {
+  days: number[];
+  opensAt: string;
+  closesAt: string;
+}
 
 export interface Restaurant {
   latitude?: number;
@@ -14,9 +21,19 @@ export interface Restaurant {
   photos: string[];             // <<< ajouté = carrousel
   note: number;                 // note moyenne
   prixMoyen: string;            // '$$' etc
+  prixMoyenCdf?: string;
   description: string;
   horaires: string;
+  openingPeriods?: RestaurantOpeningPeriod[];
   specialites: string[];
+  quartier?: string;
+  commune?: string;
+  repere?: string;
+  services?: RestaurantService[];
+  paymentMethods?: RestaurantPaymentMethod[];
+  isVerified?: boolean;
+  lastVerifiedAt?: string;
+  status?: RestaurantStatus;
 
   menu?: {
     id: string;

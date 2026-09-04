@@ -22,6 +22,7 @@ export default function RestaurantScreen() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(() => restaurants.find((r) => r.id === restaurantId) || null);
   const [isLoading, setIsLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
+  const goBack = () => router.canGoBack() ? router.back() : router.replace('/restaurants');
 
   useEffect(() => {
     let active = true;
@@ -53,7 +54,7 @@ export default function RestaurantScreen() {
   if (!restaurant) {
     return (
       <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
-        <StateView title="Restaurant introuvable" message="Cette adresse n’est plus disponible dans le catalogue." actionLabel="Retour" onAction={() => router.back()} />
+        <StateView title="Restaurant introuvable" message="Cette adresse n’est plus disponible dans le catalogue." actionLabel="Retour" onAction={goBack} />
       </View>
     );
   }
@@ -73,11 +74,13 @@ export default function RestaurantScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowInvite(false)}
       >
-        <InviteFriendSheet
-          restaurant={restaurant}
-          onClose={() => setShowInvite(false)}
-          onSendInvitation={saveInvitation}
-        />
+        {showInvite ? (
+          <InviteFriendSheet
+            restaurant={restaurant}
+            onClose={() => setShowInvite(false)}
+            onSendInvitation={saveInvitation}
+          />
+        ) : null}
       </Modal>
     </View>
   );

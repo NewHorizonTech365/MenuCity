@@ -15,12 +15,13 @@ interface AuthShellProps {
 
 export default function AuthShell({ title, subtitle, children }: AuthShellProps) {
   const router = useRouter();
+  const goBack = () => router.canGoBack() ? router.back() : router.replace('/home');
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <View style={styles.page}>
-            <AppHeader title="" onBack={() => router.back()} />
+            <AppHeader title="" onBack={goBack} />
             <BrandMark />
             <View style={styles.intro}>
               <Text style={styles.title}>{title}</Text>

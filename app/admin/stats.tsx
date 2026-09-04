@@ -18,6 +18,7 @@ export default function AdminStatsScreen() {
   const router = useRouter();
   const { isAuthReady, user } = useAuth();
   const { restaurants } = useData();
+  const goBack = () => router.canGoBack() ? router.back() : router.replace('/admin');
 
   useEffect(() => {
     if (isAuthReady && user?.role !== 'admin') router.replace('/home');
@@ -34,7 +35,7 @@ export default function AdminStatsScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.page}>
-          <AppHeader title="Statistiques" subtitle="Lecture synthétique du catalogue local." onBack={() => router.replace('/admin')} />
+          <AppHeader title="Statistiques" subtitle="Lecture synthétique du catalogue local." onBack={goBack} />
           <Animated.View entering={summaryEntering} style={styles.summary}>
             <View style={styles.summaryItem}><Text style={styles.summaryValue}>{restaurants.length}</Text><Text style={styles.summaryLabel}>Restaurants</Text></View>
             <View style={styles.verticalDivider} />

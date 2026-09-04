@@ -4,14 +4,14 @@
     "slug": "MenuCity",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/natively-dark.png",
+    "icon": "./assets/images/menu-city-logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "jsEngine": "hermes",
     "splash": {
-      "image": "./assets/images/natively-dark.png",
+      "image": "./assets/images/menu-city-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F7F7F8"
+      "backgroundColor": "#FBF1E5"
     },
     "ios": {
       "supportsTablet": true,
@@ -27,8 +27,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/natively-dark.png",
-        "backgroundColor": "#F7F7F8"
+        "foregroundImage": "./assets/images/menu-city-logo.png",
+        "backgroundColor": "#FBF1E5"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.menucity.app",
@@ -49,7 +49,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/images/final_quest_240x240.png",
+      "favicon": "./assets/images/menu-city-logo.png",
       "bundler": "metro"
     },
     "plugins": [

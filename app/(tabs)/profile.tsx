@@ -93,12 +93,12 @@ export default function ProfileScreen() {
           </Animated.View>
 
           <Animated.View entering={enterCard} style={styles.profileCard}>
-            <PressableScale accessibilityRole="button" accessibilityLabel="Modifier la photo de couverture" haptic="selection" scaleTo={0.99} onPress={() => void pickImage('cover')} style={styles.cover}>
+            <PressableScale accessibilityRole="button" accessibilityLabel="Modifier la photo de couverture" accessibilityState={{ disabled: uploading, busy: uploading }} disabled={uploading} haptic="selection" scaleTo={0.99} onPress={() => void pickImage('cover')} style={styles.cover}>
               {user.photoCouverture ? <FadeInImage accessible={false} source={{ uri: user.photoCouverture }} style={styles.coverImage} /> : <View style={styles.coverPlaceholder}><Ionicons name="restaurant-outline" size={38} color={colors.primary} /></View>}
               <View style={styles.camera}><Ionicons name="camera" size={17} color={colors.white} /></View>
             </PressableScale>
             <View style={styles.identity}>
-              <PressableScale accessibilityRole="button" accessibilityLabel="Modifier la photo de profil" haptic="selection" scaleTo={0.94} onPress={() => void pickImage('profile')} style={styles.avatar}>
+              <PressableScale accessibilityRole="button" accessibilityLabel="Modifier la photo de profil" accessibilityState={{ disabled: uploading, busy: uploading }} disabled={uploading} haptic="selection" scaleTo={0.94} onPress={() => void pickImage('profile')} style={styles.avatar}>
                 {user.photoProfil ? <FadeInImage accessible={false} source={{ uri: user.photoProfil }} style={styles.avatarImage} /> : <Text style={styles.initial}>{user.nom.charAt(0).toUpperCase()}</Text>}
                 <View style={styles.avatarCamera}><Ionicons name="camera" size={14} color={colors.white} /></View>
               </PressableScale>
@@ -126,9 +126,9 @@ export default function ProfileScreen() {
           </Animated.View>
 
           <Animated.View entering={enterDetails} style={styles.actions}>
-            {user.role === 'admin' ? <AppButton label="Ouvrir l’administration" icon={<Ionicons name="shield-checkmark-outline" size={19} color={colors.white} />} onPress={() => router.push('/admin')} /> : null}
-            <AppButton label="Modifier le profil" variant="secondary" icon={<Ionicons name="create-outline" size={19} color={colors.primaryDark} />} onPress={() => setEditing(true)} />
-            <AppButton label="Se déconnecter" variant="ghost" icon={<Ionicons name="log-out-outline" size={19} color={colors.text} />} onPress={() => void logout()} />
+            {user.role === 'admin' ? <AppButton label="Ouvrir l’administration" disabled={uploading} icon={<Ionicons name="shield-checkmark-outline" size={19} color={colors.white} />} onPress={() => router.push('/admin')} /> : null}
+            <AppButton label="Modifier le profil" variant="secondary" disabled={uploading} icon={<Ionicons name="create-outline" size={19} color={colors.primaryDark} />} onPress={() => setEditing(true)} />
+            <AppButton label="Se déconnecter" variant="ghost" disabled={uploading} icon={<Ionicons name="log-out-outline" size={19} color={colors.text} />} onPress={() => void logout()} />
           </Animated.View>
         </View>
       </ScrollView>

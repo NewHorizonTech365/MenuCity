@@ -20,6 +20,7 @@ export type InvitationInput = {
 
 type DataContextType = {
   restaurants: Restaurant[];
+  archivedRestaurants: Restaurant[];
   isLoading: boolean;
   isOffline: boolean;
   reload: () => Promise<void>;
@@ -28,6 +29,7 @@ type DataContextType = {
   addRestaurant: (restaurant: Partial<Restaurant>) => Promise<Restaurant>;
   updateRestaurant: (id: string, patch: Partial<Restaurant>) => Promise<Restaurant | null>;
   deleteRestaurant: (id: string) => Promise<void>;
+  restoreRestaurant: (id: string) => Promise<Restaurant | null>;
   addMenuItem: (restaurantId: string, item: Partial<MenuItem>) => Promise<MenuItem | null>;
   updateMenuItem: (restaurantId: string, itemId: string, patch: Partial<MenuItem>) => Promise<MenuItem | null>;
   deleteMenuItem: (restaurantId: string, itemId: string) => Promise<void>;
@@ -38,6 +40,23 @@ type DataContextType = {
 export const DataContext = createContext<DataContextType | null>(null);
 
 const formatPrice = (amount: number, currency: string) => `${amount.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${currency}`;
+const coordinateKey = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const seedRestaurants = new Map(restaurantsLubumbashi.map((restaurant) => [coordinateKey(restaurant.nom), restaurant]));
+const withFallbackProductData = (restaurant: Restaurant): Restaurant => {
+  const fallback = seedRestaurants.get(coordinateKey(restaurant.nom));
+  const latitude = Number(restaurant.latitude);
+  const longitude = Number(restaurant.longitude);
+  return {
+    ...fallback,
+    ...restaurant,
+    latitude: Number.isFinite(latitude) ? latitude : fallback?.latitude,
+    longitude: Number.isFinite(longitude) ? longitude : fallback?.longitude,
+    openingPeriods: restaurant.openingPeriods ?? fallback?.openingPeriods,
+    services: restaurant.services ?? fallback?.services ?? [],
+    paymentMethods: restaurant.paymentMethods ?? fallback?.paymentMethods ?? [],
+    isVerified: restaurant.isVerified ?? fallback?.isVerified ?? false,
+  };
+};
 
 const dtoToRestaurant = (dto: RestaurantDto): Restaurant => ({
   id: dto.id,
@@ -55,6 +74,7 @@ const dtoToRestaurant = (dto: RestaurantDto): Restaurant => ({
   latitude: dto.latitude ?? undefined,
   longitude: dto.longitude ?? undefined,
   specialites: dto.specialties,
+  status: dto.status,
   menu: dto.menu?.map((item) => ({
     id: item.id,
     nom: item.name,
@@ -89,7 +109,7 @@ const restaurantPayload = (restaurant: Partial<Restaurant>, current?: Restaurant
     latitude: merged.latitude ?? null,
     longitude: merged.longitude ?? null,
     specialties: merged.specialites || [],
-    status: "published" as const,
+    status: merged.status || "published" as const,
   };
 };
 
@@ -121,6 +141,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { getAuthToken, isDevelopmentSession, user } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const restaurantsRef = useRef<Restaurant[]>([]);
+  const [archivedRestaurants, setArchivedRestaurants] = useState<Restaurant[]>([]);
+  const archivedRestaurantsRef = useRef<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
 
@@ -128,10 +150,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     restaurantsRef.current = restaurants;
   }, [restaurants]);
 
+  useEffect(() => {
+    archivedRestaurantsRef.current = archivedRestaurants;
+  }, [archivedRestaurants]);
+
   const loadFallback = useCallback(async () => {
-    const stored = await loadJson(STORAGE_KEYS.RESTAURANTS).catch(() => null);
-    const fallback = Array.isArray(stored) && stored.length ? (stored as Restaurant[]) : seedFallback();
+    const [stored, storedArchived] = await Promise.all([
+      loadJson(STORAGE_KEYS.RESTAURANTS).catch(() => null),
+      loadJson(STORAGE_KEYS.ARCHIVED_RESTAURANTS).catch(() => null),
+    ]);
+    const source = Array.isArray(stored) ? (stored as Restaurant[]) : seedFallback();
+    const fallback = source.filter((restaurant) => restaurant.status !== 'archived').map(withFallbackProductData);
+    const archivedRows = [
+      ...source.filter((restaurant) => restaurant.status === 'archived'),
+      ...(Array.isArray(storedArchived) ? storedArchived as Restaurant[] : []),
+    ].map(withFallbackProductData).filter((restaurant, index, rows) => rows.findIndex((row) => row.id === restaurant.id) === index);
+    restaurantsRef.current = fallback;
+    archivedRestaurantsRef.current = archivedRows;
     setRestaurants(fallback);
+    setArchivedRestaurants(archivedRows);
     return fallback;
   }, []);
 
@@ -139,6 +176,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     restaurantsRef.current = next;
     setRestaurants(next);
     await saveJson(STORAGE_KEYS.RESTAURANTS, next);
+  }, []);
+
+  const commitLocalArchivedRestaurants = useCallback(async (next: Restaurant[]) => {
+    archivedRestaurantsRef.current = next;
+    setArchivedRestaurants(next);
+    await saveJson(STORAGE_KEYS.ARCHIVED_RESTAURANTS, next);
   }, []);
 
   const reload = useCallback(async () => {
@@ -153,10 +196,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const rows = await apiRequest<RestaurantDto[]>(isAdmin ? "/v1/admin/restaurants" : "/v1/restaurants", {
         ...(isAdmin ? { getToken: getAuthToken } : {}),
       });
-      const normalized = rows.map(dtoToRestaurant);
-      setRestaurants(normalized);
+      const normalized = rows.map(dtoToRestaurant).map(withFallbackProductData);
+      const activeRows = normalized.filter((restaurant) => restaurant.status !== 'archived');
+      const archivedRows = normalized.filter((restaurant) => restaurant.status === 'archived');
+      restaurantsRef.current = activeRows;
+      setRestaurants(activeRows);
+      if (isAdmin) {
+        archivedRestaurantsRef.current = archivedRows;
+        setArchivedRestaurants(archivedRows);
+      }
       setIsOffline(false);
-      if (!isAdmin) await saveJson(STORAGE_KEYS.RESTAURANTS, normalized);
+      if (!isAdmin) await saveJson(STORAGE_KEYS.RESTAURANTS, activeRows);
     } catch (error) {
       console.warn("Catalogue distant indisponible, cache public utilisé.", error instanceof Error ? error.message : error);
       setIsOffline(true);
@@ -172,11 +222,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getRestaurant = useCallback(async (id: string) => {
     if (isDevelopmentSession || !isApiConfigured) {
-      return restaurantsRef.current.find((restaurant) => restaurant.id === id) || null;
+      return restaurantsRef.current.find((restaurant) => restaurant.id === id)
+        || archivedRestaurantsRef.current.find((restaurant) => restaurant.id === id)
+        || null;
     }
     try {
       const dto = await apiRequest<RestaurantDto>(`/v1/restaurants/${encodeURIComponent(id)}`);
-      const detail = dtoToRestaurant(dto);
+      const detail = withFallbackProductData(dtoToRestaurant(dto));
       setRestaurants((current) => current.map((restaurant) => (restaurant.id === id ? detail : restaurant)));
       return detail;
     } catch {
@@ -241,7 +293,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         prixMoyen: restaurant.prixMoyen || "",
         description: restaurant.description || "",
         horaires: restaurant.horaires || "",
+        openingPeriods: restaurant.openingPeriods,
         specialites: restaurant.specialites || [],
+        quartier: restaurant.quartier,
+        commune: restaurant.commune,
+        repere: restaurant.repere,
+        prixMoyenCdf: restaurant.prixMoyenCdf,
+        services: restaurant.services || [],
+        paymentMethods: restaurant.paymentMethods || [],
+        isVerified: restaurant.isVerified ?? false,
+        lastVerifiedAt: restaurant.lastVerifiedAt,
+        status: restaurant.status || 'published',
         latitude: restaurant.latitude,
         longitude: restaurant.longitude,
         menu: restaurant.menu?.map((item) => ({ ...item, id: item.id || Crypto.randomUUID() })) || [],
@@ -278,12 +340,44 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteRestaurant = async (id: string) => {
+    const current = restaurantsRef.current.find((restaurant) => restaurant.id === id);
+    if (!current) return;
+    const archived = { ...current, status: 'archived' as const };
     if (isDevelopmentSession) {
-      await commitLocalRestaurants(restaurantsRef.current.filter((restaurant) => restaurant.id !== id));
+      await Promise.all([
+        commitLocalRestaurants(restaurantsRef.current.filter((restaurant) => restaurant.id !== id)),
+        commitLocalArchivedRestaurants([archived, ...archivedRestaurantsRef.current.filter((restaurant) => restaurant.id !== id)]),
+      ]);
       return;
     }
     await apiRequest<void>(`/v1/admin/restaurants/${encodeURIComponent(id)}`, { method: "DELETE", getToken: getAuthToken });
     setRestaurants((current) => current.filter((restaurant) => restaurant.id !== id));
+    archivedRestaurantsRef.current = [archived, ...archivedRestaurantsRef.current.filter((restaurant) => restaurant.id !== id)];
+    setArchivedRestaurants(archivedRestaurantsRef.current);
+  };
+
+  const restoreRestaurant = async (id: string) => {
+    const current = archivedRestaurantsRef.current.find((restaurant) => restaurant.id === id);
+    if (!current) return null;
+    if (isDevelopmentSession) {
+      const restored = { ...current, status: 'published' as const };
+      await Promise.all([
+        commitLocalArchivedRestaurants(archivedRestaurantsRef.current.filter((restaurant) => restaurant.id !== id)),
+        commitLocalRestaurants([restored, ...restaurantsRef.current.filter((restaurant) => restaurant.id !== id)]),
+      ]);
+      return restored;
+    }
+    const updated = await apiRequest<RestaurantDto>(`/v1/admin/restaurants/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      getToken: getAuthToken,
+      body: restaurantPayload({ ...current, status: 'published' }, current),
+    });
+    const restored = dtoToRestaurant(updated);
+    archivedRestaurantsRef.current = archivedRestaurantsRef.current.filter((restaurant) => restaurant.id !== id);
+    setArchivedRestaurants(archivedRestaurantsRef.current);
+    restaurantsRef.current = [restored, ...restaurantsRef.current.filter((restaurant) => restaurant.id !== id)];
+    setRestaurants(restaurantsRef.current);
+    return restored;
   };
 
   const addMenuItem = async (restaurantId: string, item: Partial<MenuItem>) => {
@@ -367,6 +461,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value: DataContextType = {
     restaurants,
+    archivedRestaurants,
     isLoading,
     isOffline,
     reload,
@@ -375,6 +470,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addRestaurant,
     updateRestaurant,
     deleteRestaurant,
+    restoreRestaurant,
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
